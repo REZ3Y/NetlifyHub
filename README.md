@@ -16,8 +16,8 @@ NetlifyHub is a production-oriented web control plane for operating many Netlify
 
 ## Architecture
 
-| Package            | Role                                      |
-| ------------------ | ----------------------------------------- |
+| Package              | Role                                      |
+| -------------------- | ----------------------------------------- |
 | `@netlifyhub/api`    | HTTP API (`/v1`), auth, health            |
 | `@netlifyhub/web`    | SPA dashboard                             |
 | `@netlifyhub/worker` | BullMQ consumer (placeholder jobs)        |
@@ -40,10 +40,14 @@ Per [Netlify API documentation](https://docs.netlify.com/api-and-cli-guides/api-
 Repository: [https://github.com/REZ3Y/NetlifyHub](https://github.com/REZ3Y/NetlifyHub)
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 ```
 
+Use **`main`** in the URL only if that is your GitHub default branch; if the default is **`master`**, replace `main` with `master`. The file **`install.sh` must exist at the repository root** on GitHub (push your local copy if the one-line command returns HTTP 404).
+
 This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), installs dependencies, runs migrations (PostgreSQL must match `DATABASE_URL` in `apps/api/.env`), and launches the interactive admin bootstrap.
+
+If you previously saw `404:: command not found`, you were missing **`curl -f`**: without it, curl prints GitHub’s error body and bash tries to run it as a script.
 
 To install from a fork or mirror, set `NETLIFYHUB_REPO_URL` before the command (for example `https://github.com/your-user/NetlifyHub.git`).
 
@@ -87,24 +91,24 @@ The normal `api` service entrypoint already runs `prisma migrate deploy` and `pr
 
 See `apps/api/.env.example`, `apps/worker/.env.example`, and `apps/web/.env.example`. Highlights:
 
-| Variable               | Description                                      |
-| ---------------------- | ------------------------------------------------ |
-| `DATABASE_URL`         | PostgreSQL connection string                     |
-| `REDIS_URL`            | Redis connection URL (API + worker)            |
-| `SESSION_TTL_DAYS`     | Cookie/session lifetime in days (default `7`)   |
-| `WEB_ORIGIN`           | Exact browser origin allowed by CORS             |
-| `COOKIE_SECURE`        | `true` / `false`; defaults from `NODE_ENV`       |
+| Variable               | Description                                                             |
+| ---------------------- | ----------------------------------------------------------------------- |
+| `DATABASE_URL`         | PostgreSQL connection string                                            |
+| `REDIS_URL`            | Redis connection URL (API + worker)                                     |
+| `SESSION_TTL_DAYS`     | Cookie/session lifetime in days (default `7`)                           |
+| `WEB_ORIGIN`           | Exact browser origin allowed by CORS                                    |
+| `COOKIE_SECURE`        | `true` / `false`; defaults from `NODE_ENV`                              |
 | `TOKEN_ENCRYPTION_KEY` | Optional 32+ chars for encrypting Netlify tokens at rest (later phases) |
 
 ## Development scripts
 
-| Command        | Description                              |
-| -------------- | ---------------------------------------- |
-| `pnpm dev`     | Run API, web, and worker in watch mode   |
-| `pnpm build`   | Build all packages                       |
-| `pnpm lint`    | ESLint across workspaces                 |
-| `pnpm format`  | Prettier write                           |
-| `pnpm db:migrate` | `prisma migrate deploy` (API schema)  |
+| Command           | Description                            |
+| ----------------- | -------------------------------------- |
+| `pnpm dev`        | Run API, web, and worker in watch mode |
+| `pnpm build`      | Build all packages                     |
+| `pnpm lint`       | ESLint across workspaces               |
+| `pnpm format`     | Prettier write                         |
+| `pnpm db:migrate` | `prisma migrate deploy` (API schema)   |
 
 ## Security
 

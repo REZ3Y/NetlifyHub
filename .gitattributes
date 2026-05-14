@@ -1,0 +1,2 @@
+# Shell scripts: LF only — Windows CRLF breaks shebangs in Linux Docker ENTRYPOINT
+*.sh text eol=lf

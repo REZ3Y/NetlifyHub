@@ -16,12 +16,12 @@ NetlifyHub یک پنل تحت وب **Production-Grade** برای مدیریت ت
 
 ## معماری
 
-| پکیج                | نقش                          |
-| ------------------- | ---------------------------- |
-| `@netlifyhub/api`   | API اصلی، احراز هویت، سلامت |
-| `@netlifyhub/web`   | داشبورد SPA                  |
-| `@netlifyhub/worker`| مصرف‌کننده BullMQ (فعلاً جایگاه) |
-| `@netlifyhub/shared`| ثابت‌های مشترک               |
+| پکیج                 | نقش                              |
+| -------------------- | -------------------------------- |
+| `@netlifyhub/api`    | API اصلی، احراز هویت، سلامت      |
+| `@netlifyhub/web`    | داشبورد SPA                      |
+| `@netlifyhub/worker` | مصرف‌کننده BullMQ (فعلاً جایگاه) |
+| `@netlifyhub/shared` | ثابت‌های مشترک                   |
 
 ## محدودیت نرخ Netlify
 
@@ -38,10 +38,14 @@ NetlifyHub یک پنل تحت وب **Production-Grade** برای مدیریت ت
 مخزن: [https://github.com/REZ3Y/NetlifyHub](https://github.com/REZ3Y/NetlifyHub)
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 ```
 
+در URL فقط اگر شاخهٔ پیش‌فرض GitHub شما **`main`** است از `main` استفاده کنید؛ اگر پیش‌فرض **`master`** است، همان را جایگزین کنید. فایل **`install.sh` باید در ریشهٔ مخزن روی GitHub باشد** (در صورت 404، نسخهٔ محلی را push کنید).
+
 این دستور [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git) را کلون می‌کند، وابستگی‌ها را نصب می‌کند، مایگریشن را اجرا می‌کند (PostgreSQL باید با `DATABASE_URL` در `apps/api/.env` هماهنگ باشد) و سپس ساخت ادمین اولیه را به‌صورت تعاملی اجرا می‌کند.
+
+اگر خطای `404:: command not found` دیدید، به‌دلیل نبودن **`curl -f`** بوده: بدون آن، بدنهٔ خطای GitHub به bash داده می‌شود و اجرای آن معنی ندارد.
 
 برای نصب از Fork یا آینهٔ دیگر، قبل از دستور متغیر `NETLIFYHUB_REPO_URL` را تنظیم کنید (مثلاً `https://github.com/your-user/NetlifyHub.git`).
 
@@ -81,11 +85,11 @@ pnpm dev
 
 ## اسکریپت‌های توسعه
 
-| دستور            | توضیح                    |
-| ---------------- | ------------------------ |
-| `pnpm dev`       | اجرای همزمان API، وب، Worker |
-| `pnpm build`     | بیلد همه پکیج‌ها         |
-| `pnpm lint`      | ESLint                   |
+| دستور        | توضیح                        |
+| ------------ | ---------------------------- |
+| `pnpm dev`   | اجرای همزمان API، وب، Worker |
+| `pnpm build` | بیلد همه پکیج‌ها             |
+| `pnpm lint`  | ESLint                       |
 
 ## امنیت
 

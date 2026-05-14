@@ -2,11 +2,11 @@
 #
 # NetlifyHub installer (local clone or one-line remote).
 #
-# One-line (recommended):
-#   bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+# One-line (recommended; -f stops on 404 so bash never runs an error page):
+#   bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 #
 # Fork / mirror:
-#   NETLIFYHUB_REPO_URL=https://github.com/you/NetlifyHub.git bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+#   NETLIFYHUB_REPO_URL=https://github.com/you/NetlifyHub.git bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 #
 set -euo pipefail
 

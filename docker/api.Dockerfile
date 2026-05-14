@@ -20,6 +20,8 @@ FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /app /app
-RUN chmod +x docker/api-entrypoint.sh
+# Strip Windows CRLF so shebangs work in Linux (fixes exec ... no such file or directory)
+RUN find docker -name '*.sh' -type f -print0 | xargs -0 -r sed -i 's/\r$//' \
+  && chmod +x docker/api-entrypoint.sh
 EXPOSE 3000
 ENTRYPOINT ["/app/docker/api-entrypoint.sh"]
