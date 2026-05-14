@@ -50,10 +50,15 @@ const activeKey = computed(() => {
   return 'dashboard';
 });
 
+const pathByMenuKey: Record<string, string> = {
+  dashboard: '/',
+  profile: '/profile',
+  registerNetlifyAccount: '/netlify-accounts/register',
+};
+
 function onMenuSelect(key: string) {
-  if (key === 'dashboard') void router.push({ name: 'dashboard' });
-  if (key === 'profile') void router.push({ name: 'profile' });
-  if (key === 'registerNetlifyAccount') void router.push({ name: 'registerNetlifyAccount' });
+  const path = pathByMenuKey[key];
+  if (path !== undefined) void router.push(path);
 }
 
 async function onLogout() {

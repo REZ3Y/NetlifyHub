@@ -30,9 +30,13 @@ export const router = createRouter({
           name: 'registerNetlifyAccount',
           component: () => import('@/views/RegisterNetlifyAccountView.vue'),
         },
+        /** Must stay last: unknown paths under `/` fall through here (avoids root-level `/:pathMatch` stealing nested routes). */
+        {
+          path: ':pathMatch(.*)*',
+          redirect: { name: 'dashboard' },
+        },
       ],
     },
-    { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 });
 
