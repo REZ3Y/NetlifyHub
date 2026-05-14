@@ -1,9 +1,9 @@
-import type { FastifyBaseLogger } from 'fastify';
-import pino from 'pino';
+import type { LoggerOptions } from 'pino';
 import type { Env } from './env.js';
 
-export function createLogger(env: Env): FastifyBaseLogger {
-  return pino({
+/** Pino options for Fastify 5 (`logger` must be a config object, not a logger instance). */
+export function getPinoLoggerOptions(env: Env): LoggerOptions {
+  return {
     level: env.LOG_LEVEL,
     ...(env.NODE_ENV === 'development'
       ? {
@@ -17,5 +17,5 @@ export function createLogger(env: Env): FastifyBaseLogger {
       paths: ['req.headers.authorization', 'req.headers.cookie', 'password', 'passwordHash'],
       remove: true,
     },
-  }) as unknown as FastifyBaseLogger;
+  };
 }

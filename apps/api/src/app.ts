@@ -5,7 +5,7 @@ import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import type { Env } from './config/env.js';
-import { createLogger } from './config/logger.js';
+import { getPinoLoggerOptions } from './config/logger.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { meRoutes } from './routes/me.routes.js';
@@ -18,7 +18,7 @@ declare module 'fastify' {
 
 export async function buildApp(env: Env) {
   const app = Fastify({
-    logger: createLogger(env),
+    logger: getPinoLoggerOptions(env),
     trustProxy: true,
     requestIdHeader: 'x-request-id',
     genReqId: () => crypto.randomUUID(),
