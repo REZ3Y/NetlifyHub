@@ -9,7 +9,6 @@ import { useUserDateTime } from '@/composables/useUserDateTime';
 
 const { t } = useI18n();
 const message = useMessage();
-const auth = useAuthStore();
 const { formatDateTime } = useUserDateTime();
 
 const formRef = ref<FormInst | null>(null);
