@@ -1,5 +1,8 @@
 # Local development: Postgres + Redis + Worker only (API and web run on the host).
 #
+# After first `up`: from repo root run `pnpm db:migrate` so Prisma tables exist, then e.g.
+# `pnpm bootstrap:admin` or `pnpm --filter @netlifyhub/api run create-admin`.
+#
 # Start (from repo root):
 #   pnpm run docker:local
 # or:
@@ -16,8 +19,9 @@ services:
       POSTGRES_USER: netlifyhub
       POSTGRES_PASSWORD: netlifyhub
       POSTGRES_DB: netlifyhub
+    # Host 5433 avoids clashing with a local PostgreSQL service on Windows/macOS (often :5432).
     ports:
-      - '5432:5432'
+      - '5433:5432'
     volumes:
       - netlifyhub_pg_local:/var/lib/postgresql/data
     healthcheck:

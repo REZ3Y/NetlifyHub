@@ -1,10 +1,16 @@
-import 'dotenv/config';
+import './ensure-api-env.js';
 import * as readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { Role } from '@prisma/client';
 import { loadEnv } from '../src/config/env.js';
 import { prisma } from '../src/db/prisma.js';
 import { hashPassword } from '../src/lib/password.js';
+
+function isMissingTablesError(e: unknown): boolean {
+  return (
+    typeof e === 'object' && e !== null && 'code' in e && (e as { code: string }).code === 'P2021'
+  );
+}
 
 async function main() {
   const env = loadEnv();
@@ -43,6 +49,19 @@ async function main() {
 }
 
 main().catch((e) => {
+  if (isMissingTablesError(e)) {
+    console.error(
+      [
+        'Database schema is missing (tables not created yet).',
+        '',
+        'From the repository root run:',
+        '  pnpm db:migrate',
+        '',
+        'Then run create-admin again.',
+      ].join('\n')
+    );
+    process.exit(1);
+  }
   console.error(e);
   process.exit(1);
 });

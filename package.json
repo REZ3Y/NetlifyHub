@@ -17,7 +17,8 @@
     "prepare": "husky",
     "db:generate": "pnpm --filter @netlifyhub/api exec prisma generate",
     "db:migrate": "pnpm --filter @netlifyhub/api exec prisma migrate deploy",
-    "db:studio": "pnpm --filter @netlifyhub/api exec prisma studio"
+    "db:studio": "pnpm --filter @netlifyhub/api exec prisma studio",
+    "bootstrap:admin": "pnpm db:migrate && pnpm --filter @netlifyhub/api run create-admin"
   },
   "lint-staged": {
     "*.{ts,tsx,vue}": [
