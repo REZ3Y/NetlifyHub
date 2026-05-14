@@ -6,17 +6,53 @@ import { encryptSecret } from '../lib/token-crypto.js';
 import type { Env } from '../config/env.js';
 import { z } from 'zod';
 
+/** Netlify may return snake_case or camelCase; some fields are explicit `null`. */
+function normalizeNetlifyUserJson(raw: unknown): unknown {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const o = { ...(raw as Record<string, unknown>) };
+  const aliases: [string, string][] = [
+    ['fullName', 'full_name'],
+    ['avatarUrl', 'avatar_url'],
+    ['siteCount', 'site_count'],
+    ['createdAt', 'created_at'],
+    ['lastLogin', 'last_login'],
+    ['affiliateId', 'affiliate_id'],
+  ];
+  for (const [camel, snake] of aliases) {
+    if (camel in o && !(snake in o)) {
+      o[snake] = o[camel];
+      delete o[camel];
+    }
+  }
+  return o;
+}
+
+const stringOrIsoFromNumber = z
+  .union([z.string(), z.number(), z.null()])
+  .optional()
+  .transform((v) => {
+    if (v === undefined || v === null) return undefined;
+    if (typeof v === 'number') {
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? String(v) : d.toISOString();
+    }
+    return v;
+  });
+
 const netlifyUserBody = z
   .object({
-    id: z.union([z.string(), z.number()]).transform((v) => String(v)),
-    uid: z.string().optional(),
-    full_name: z.string().optional(),
-    avatar_url: z.string().optional(),
-    email: z.string().optional(),
-    affiliate_id: z.union([z.string(), z.number(), z.null()]).optional(),
-    site_count: z.coerce.number().int().optional(),
-    created_at: z.string().optional(),
-    last_login: z.union([z.string(), z.null()]).optional(),
+    id: z.union([z.string(), z.number(), z.bigint()]).transform((v) => String(v)),
+    uid: z
+      .union([z.string(), z.number()])
+      .nullish()
+      .transform((v) => (v == null ? undefined : String(v))),
+    full_name: z.string().nullish(),
+    avatar_url: z.string().nullish(),
+    email: z.string().nullish(),
+    affiliate_id: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+    site_count: z.coerce.number().int().nullish(),
+    created_at: stringOrIsoFromNumber,
+    last_login: stringOrIsoFromNumber,
   })
   .passthrough();
 
@@ -112,7 +148,7 @@ export async function createLinkedNetlifyAccount(
     };
   }
 
-  const parsed = netlifyUserBody.safeParse(raw);
+  const parsed = netlifyUserBody.safeParse(normalizeNetlifyUserJson(raw));
   if (!parsed.success) {
     return {
       ok: false,

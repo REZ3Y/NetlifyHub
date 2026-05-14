@@ -38,6 +38,15 @@ type LinkedAccount = {
 
 const createdAccount = ref<LinkedAccount | null>(null);
 
+const noAutocompleteInputProps = {
+  autocomplete: 'off' as const,
+  'data-lpignore': 'true' as const,
+  'data-1p-ignore': 'true' as const,
+};
+
+const titleInputProps = { ...noAutocompleteInputProps, name: 'netlifyhub_panel_title' };
+const tokenInputProps = { ...noAutocompleteInputProps, name: 'netlifyhub_netlify_pat' };
+
 const rules: FormRules = {
   apiToken: [
     { required: true, message: () => t('netlifyAccounts.rules.tokenRequired'), trigger: 'blur' },
@@ -49,6 +58,12 @@ function formatNetlifyInstant(value: string | null): string {
   const asDate = new Date(value);
   if (!Number.isNaN(asDate.getTime())) return formatDateTime(asDate);
   return value;
+}
+
+/** `n-form` renders a native `<form>`; its default `onSubmit` only calls `preventDefault()`. */
+function handleNativeFormSubmit(e: Event) {
+  e.preventDefault();
+  void onSubmit();
 }
 
 async function onSubmit() {
@@ -95,13 +110,20 @@ function closeSuccessModal() {
     </div>
 
     <n-card :segmented="{ content: true }">
-      <n-form ref="formRef" :model="model" :rules="rules" label-placement="top">
+      <n-form
+        ref="formRef"
+        :model="model"
+        :rules="rules"
+        label-placement="top"
+        :on-submit="handleNativeFormSubmit"
+      >
         <n-form-item path="title" :label="t('netlifyAccounts.titleField')">
           <n-input
             v-model:value="model.title"
             :placeholder="t('netlifyAccounts.titlePlaceholder')"
             maxlength="128"
             show-count
+            :input-props="titleInputProps"
           />
         </n-form-item>
         <n-form-item path="apiToken" :label="t('netlifyAccounts.apiToken')">
@@ -110,10 +132,10 @@ function closeSuccessModal() {
             type="password"
             show-password-on="click"
             :placeholder="t('netlifyAccounts.apiTokenPlaceholder')"
-            autocomplete="off"
+            :input-props="tokenInputProps"
           />
         </n-form-item>
-        <n-button type="primary" :loading="submitting" @click="onSubmit">
+        <n-button type="primary" attr-type="submit" :loading="submitting">
           {{ t('netlifyAccounts.submit') }}
         </n-button>
       </n-form>
