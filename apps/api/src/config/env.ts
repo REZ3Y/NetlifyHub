@@ -16,6 +16,8 @@ const envSchema = z
     BCRYPT_ROUNDS: z.coerce.number().int().min(10).max(14).default(12),
     TOKEN_ENCRYPTION_KEY: z.string().min(32).optional(),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+    /** Absolute or cwd-relative path to Vite `dist` (Docker). When set, SPA is served from this API. */
+    STATIC_WEB_ROOT: z.string().optional(),
   })
   .transform((v) => {
     let cookieSecure: boolean;
@@ -24,7 +26,11 @@ const envSchema = z
     else cookieSecure = v.NODE_ENV === 'production';
     const { COOKIE_SECURE: _raw, ...rest } = v;
     void _raw;
-    return { ...rest, COOKIE_SECURE: cookieSecure };
+    const staticRoot =
+      typeof rest.STATIC_WEB_ROOT === 'string' && rest.STATIC_WEB_ROOT.trim() !== ''
+        ? rest.STATIC_WEB_ROOT.trim()
+        : undefined;
+    return { ...rest, COOKIE_SECURE: cookieSecure, STATIC_WEB_ROOT: staticRoot };
   });
 
 export type Env = z.output<typeof envSchema>;

@@ -4,6 +4,8 @@ WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 
 FROM base AS build
+ARG VITE_APP_TITLE=NetlifyHub
+ENV VITE_APP_TITLE=${VITE_APP_TITLE}
 COPY package.json pnpm-workspace.yaml ./
 COPY pnpm-lock.yaml* ./
 COPY apps/api/package.json apps/api/
@@ -15,6 +17,7 @@ COPY . .
 RUN pnpm --filter @netlifyhub/shared build
 RUN pnpm --filter @netlifyhub/api exec prisma generate
 RUN pnpm --filter @netlifyhub/api build
+RUN NODE_ENV=production pnpm --filter @netlifyhub/web build
 
 FROM base AS runner
 ENV NODE_ENV=production
