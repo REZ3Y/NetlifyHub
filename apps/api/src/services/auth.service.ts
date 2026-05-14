@@ -5,7 +5,7 @@ import { prisma } from '../db/prisma.js';
 import { generateSessionToken, hashOpaqueToken } from '../lib/opaque-token.js';
 import { hashPassword, verifyPassword } from '../lib/password.js';
 
-export type AuthUser = { id: string; username: string; role: string };
+export type AuthUser = { id: string; username: string; role: string; timezone: string };
 
 export async function authenticateRequest(
   request: FastifyRequest,
@@ -29,6 +29,7 @@ export async function authenticateRequest(
     id: record.user.id,
     username: record.user.username,
     role: record.user.role,
+    timezone: record.user.timezone,
   };
 }
 
@@ -37,8 +38,7 @@ export async function performLogin(
   username: string,
   password: string
 ): Promise<
-  | { ok: true; user: AuthUser; rawSession: string }
-  | { ok: false; error: string; message: string }
+  { ok: true; user: AuthUser; rawSession: string } | { ok: false; error: string; message: string }
 > {
   const user = await prisma.user.findUnique({ where: { username } });
   if (!user) {
@@ -60,7 +60,7 @@ export async function performLogin(
 
   return {
     ok: true,
-    user: { id: user.id, username: user.username, role: user.role },
+    user: { id: user.id, username: user.username, role: user.role, timezone: user.timezone },
     rawSession,
   };
 }

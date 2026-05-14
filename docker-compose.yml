@@ -44,6 +44,7 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-local-dev-token-encryption-key-min-32chars}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       STATIC_WEB_ROOT: /app/apps/web/dist
     ports:

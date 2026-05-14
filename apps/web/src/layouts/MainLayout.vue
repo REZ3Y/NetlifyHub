@@ -2,7 +2,13 @@
 import { computed, h } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { BookOutline, GridOutline, LogOutOutline, PersonOutline } from '@vicons/ionicons5';
+import {
+  BookOutline,
+  GridOutline,
+  LogOutOutline,
+  PersonOutline,
+  PersonAddOutline,
+} from '@vicons/ionicons5';
 import { NIcon, useMessage } from 'naive-ui';
 import { useAppTheme, type ThemeMode } from '@/composables/useAppTheme';
 import { useAuthStore } from '@/stores/auth';
@@ -27,6 +33,11 @@ const menuOptions = computed(() => [
     icon: renderIcon(GridOutline),
   },
   {
+    label: t('nav.registerNetlifyAccount'),
+    key: 'registerNetlifyAccount',
+    icon: renderIcon(PersonAddOutline),
+  },
+  {
     label: t('nav.profile'),
     key: 'profile',
     icon: renderIcon(PersonOutline),
@@ -35,12 +46,14 @@ const menuOptions = computed(() => [
 
 const activeKey = computed(() => {
   if (route.name === 'profile') return 'profile';
+  if (route.name === 'registerNetlifyAccount') return 'registerNetlifyAccount';
   return 'dashboard';
 });
 
 function onMenuSelect(key: string) {
   if (key === 'dashboard') void router.push({ name: 'dashboard' });
   if (key === 'profile') void router.push({ name: 'profile' });
+  if (key === 'registerNetlifyAccount') void router.push({ name: 'registerNetlifyAccount' });
 }
 
 async function onLogout() {

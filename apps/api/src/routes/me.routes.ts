@@ -8,11 +8,26 @@ import {
   updateUsername,
 } from '../services/auth.service.js';
 
+function isValidIanaTimeZone(tz: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const patchBody = z
   .object({
     username: z.string().min(1).max(64).optional(),
     currentPassword: z.string().min(1).max(256).optional(),
     newPassword: z.string().min(8).max(256).optional(),
+    timezone: z
+      .string()
+      .min(1)
+      .max(128)
+      .refine(isValidIanaTimeZone, { message: 'Invalid IANA time zone' })
+      .optional(),
   })
   .superRefine((b, ctx) => {
     if (b.newPassword && !b.currentPassword) {
@@ -32,7 +47,14 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     if (!user) return;
     const row = await prisma.user.findUnique({
       where: { id: user.id },
-      select: { id: true, username: true, role: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        timezone: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
     if (!row) return reply.code(404).send({ error: 'NOT_FOUND', message: 'User not found' });
     return row;
@@ -70,9 +92,23 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       clearSessionCookie(reply, cfg);
     }
 
+    if (body.timezone) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { timezone: body.timezone },
+      });
+    }
+
     const row = await prisma.user.findUniqueOrThrow({
       where: { id: user.id },
-      select: { id: true, username: true, role: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        timezone: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return passwordChanged ? { user: row, mustReauth: true } : { user: row };

@@ -18,9 +18,41 @@ model User {
   username  String    @unique
   passwordHash String
   role      Role      @default(VIEWER)
+  /** IANA timezone for UI date formatting (e.g. Asia/Tehran). */
+  timezone  String    @default("UTC")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sessions  Session[]
+  netlifyLinkedAccounts NetlifyLinkedAccount[]
+}
+
+model NetlifyLinkedAccount {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /** Optional label chosen in the panel (not from Netlify). */
+  label String?
+
+  /** Netlify user `id` from GET /user. */
+  netlifyId String
+  uid       String
+  fullName  String?
+  avatarUrl String?
+  email     String?
+  affiliateId String?
+  siteCount   Int     @default(0)
+  netlifyCreatedAt String?
+  netlifyLastLogin String?
+
+  /** AES-256-GCM ciphertext (see `token-crypto`). */
+  tokenEncrypted String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, netlifyId])
+  @@index([userId])
 }
 
 model Session {

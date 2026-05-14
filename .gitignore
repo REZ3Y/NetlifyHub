@@ -14,3 +14,4 @@ coverage
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 components.d.ts
+PROJECT_CONTEXT.local.md

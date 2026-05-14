@@ -9,6 +9,7 @@ import { getPinoLoggerOptions } from './config/logger.js';
 import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { meRoutes } from './routes/me.routes.js';
+import { netlifyAccountsRoutes } from './routes/netlify-accounts.routes.js';
 import { registerSpaStatic } from './plugins/spa-static.js';
 
 declare module 'fastify' {
@@ -50,6 +51,7 @@ export async function buildApp(env: Env) {
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(meRoutes, { prefix: '/v1/me' });
+  await app.register(netlifyAccountsRoutes, { prefix: '/v1/netlify-accounts' });
 
   if (env.STATIC_WEB_ROOT) {
     await registerSpaStatic(app, env.STATIC_WEB_ROOT);
