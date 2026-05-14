@@ -1,18 +1,22 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import type { FormInst, FormRules } from 'naive-ui';
 import { useMessage } from 'naive-ui';
 import { useAuthStore } from '@/stores/auth';
+import { useAppTheme } from '@/composables/useAppTheme';
 
 const { t } = useI18n();
 const router = useRouter();
 const route = useRoute();
 const auth = useAuthStore();
 const message = useMessage();
+const { naiveTheme } = useAppTheme();
 const formRef = ref<FormInst | null>(null);
 const loading = ref(false);
+
+const isDarkUi = computed(() => naiveTheme.value !== null);
 
 const model = reactive({
   username: '',
@@ -43,8 +47,12 @@ async function submit() {
 </script>
 
 <template>
-  <div class="page">
-    <n-card class="card" :title="t('auth.loginTitle')" :segmented="{ content: true, footer: 'soft' }">
+  <div class="page" :class="{ 'page--dark': isDarkUi, 'page--light': !isDarkUi }">
+    <n-card
+      class="card"
+      :title="t('auth.loginTitle')"
+      :segmented="{ content: true, footer: 'soft' }"
+    >
       <template #header-extra>
         <n-text depth="3">{{ t('app.title') }}</n-text>
       </template>
@@ -62,7 +70,14 @@ async function submit() {
             @keyup.enter="submit"
           />
         </n-form-item>
-        <n-button type="primary" block size="large" :loading="loading" attr-type="submit" @click="submit">
+        <n-button
+          type="primary"
+          block
+          size="large"
+          :loading="loading"
+          attr-type="submit"
+          @click="submit"
+        >
           {{ t('auth.login') }}
         </n-button>
       </n-form>
@@ -72,12 +87,20 @@ async function submit() {
 
 <style scoped>
 .page {
-  min-height: 100%;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: linear-gradient(145deg, rgba(99, 102, 241, 0.08), rgba(14, 165, 233, 0.08));
+}
+.page--dark {
+  background: #1b2433;
+}
+.page--light {
+  background: #e8ecf4;
 }
 .card {
   width: min(420px, 100%);
