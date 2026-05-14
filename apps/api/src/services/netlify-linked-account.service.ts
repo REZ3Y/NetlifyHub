@@ -68,6 +68,7 @@ export type LinkedNetlifyAccountDto = {
   siteCount: number;
   netlifyCreatedAt: string | null;
   netlifyLastLogin: string | null;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -84,6 +85,7 @@ function toDto(row: {
   siteCount: number;
   netlifyCreatedAt: string | null;
   netlifyLastLogin: string | null;
+  enabled: boolean;
   createdAt: Date;
   updatedAt: Date;
 }): LinkedNetlifyAccountDto {
@@ -99,9 +101,187 @@ function toDto(row: {
     siteCount: row.siteCount,
     netlifyCreatedAt: row.netlifyCreatedAt,
     netlifyLastLogin: row.netlifyLastLogin,
+    enabled: row.enabled,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+const accountSelect = {
+  id: true,
+  label: true,
+  netlifyId: true,
+  uid: true,
+  fullName: true,
+  avatarUrl: true,
+  email: true,
+  affiliateId: true,
+  siteCount: true,
+  netlifyCreatedAt: true,
+  netlifyLastLogin: true,
+  enabled: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+export async function listLinkedNetlifyAccounts(
+  userId: string
+): Promise<LinkedNetlifyAccountDto[]> {
+  const rows = await prisma.netlifyLinkedAccount.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: accountSelect,
+  });
+  return rows.map(toDto);
+}
+
+export async function getLinkedNetlifyAccount(
+  userId: string,
+  id: string
+): Promise<LinkedNetlifyAccountDto | null> {
+  const row = await prisma.netlifyLinkedAccount.findFirst({
+    where: { id, userId },
+    select: accountSelect,
+  });
+  return row ? toDto(row) : null;
+}
+
+export async function deleteLinkedNetlifyAccount(userId: string, id: string): Promise<boolean> {
+  const res = await prisma.netlifyLinkedAccount.deleteMany({ where: { id, userId } });
+  return res.count > 0;
+}
+
+export async function setLinkedNetlifyAccountEnabled(
+  userId: string,
+  id: string,
+  enabled: boolean
+): Promise<LinkedNetlifyAccountDto | null> {
+  try {
+    const row = await prisma.netlifyLinkedAccount.update({
+      where: { id, userId },
+      data: { enabled },
+      select: accountSelect,
+    });
+    return toDto(row);
+  } catch {
+    return null;
+  }
+}
+
+export async function updateLinkedNetlifyAccount(
+  env: Env,
+  userId: string,
+  id: string,
+  input: { label?: string | null; apiToken?: string }
+): Promise<
+  | { ok: true; account: LinkedNetlifyAccountDto }
+  | { ok: false; error: string; message: string; status: number }
+> {
+  const existing = await prisma.netlifyLinkedAccount.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) {
+    return { ok: false, error: 'NOT_FOUND', message: 'Linked account not found.', status: 404 };
+  }
+
+  const secret = env.TOKEN_ENCRYPTION_KEY;
+  if (input.apiToken !== undefined && (!secret || secret.length < 32)) {
+    return {
+      ok: false,
+      error: 'SERVER_MISCONFIGURED',
+      message: 'TOKEN_ENCRYPTION_KEY must be set (32+ characters) to store Netlify tokens.',
+      status: 503,
+    };
+  }
+
+  if (input.apiToken === undefined) {
+    const row = await prisma.netlifyLinkedAccount.update({
+      where: { id, userId },
+      data: { label: input.label?.trim() ? input.label.trim() : null },
+      select: accountSelect,
+    });
+    return { ok: true, account: toDto(row) };
+  }
+
+  const fetchImpl = await createNetlifyFetchForUser(env, userId);
+  const client = createNetlifyClient({ accessToken: input.apiToken, fetchImpl });
+  let raw: unknown;
+  try {
+    raw = await client.user.get();
+  } catch (e) {
+    if (e instanceof NetlifyApiError) {
+      const msg =
+        e.status === 401
+          ? 'Invalid or expired Netlify API token.'
+          : e.message || 'Netlify API request failed.';
+      return {
+        ok: false,
+        error: 'NETLIFY_API_ERROR',
+        message: msg,
+        status: e.status >= 400 && e.status < 600 ? e.status : 502,
+      };
+    }
+    return {
+      ok: false,
+      error: 'NETLIFY_API_ERROR',
+      message: 'Unexpected error while calling Netlify.',
+      status: 502,
+    };
+  }
+
+  const parsed = netlifyUserBody.safeParse(normalizeNetlifyUserJson(raw));
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: 'INVALID_NETLIFY_RESPONSE',
+      message: 'Unexpected user payload from Netlify.',
+      status: 502,
+    };
+  }
+  const u = parsed.data;
+  const affiliateId =
+    u.affiliate_id === undefined || u.affiliate_id === null ? null : String(u.affiliate_id);
+  const tokenEncrypted = encryptSecret(input.apiToken, secret!);
+
+  try {
+    const row = await prisma.netlifyLinkedAccount.update({
+      where: { id, userId },
+      data: {
+        label:
+          input.label !== undefined ? (input.label?.trim() ? input.label.trim() : null) : undefined,
+        netlifyId: u.id,
+        uid: u.uid ?? u.id,
+        fullName: u.full_name ?? null,
+        avatarUrl: u.avatar_url ?? null,
+        email: u.email ?? null,
+        affiliateId,
+        siteCount: u.site_count ?? 0,
+        netlifyCreatedAt: u.created_at ?? null,
+        netlifyLastLogin: u.last_login === null || u.last_login === undefined ? null : u.last_login,
+        tokenEncrypted,
+      },
+      select: accountSelect,
+    });
+    return { ok: true, account: toDto(row) };
+  } catch (e: unknown) {
+    const code =
+      typeof e === 'object' &&
+      e !== null &&
+      'code' in e &&
+      typeof (e as { code: unknown }).code === 'string'
+        ? (e as { code: string }).code
+        : undefined;
+    if (code === 'P2002') {
+      return {
+        ok: false,
+        error: 'DUPLICATE_ACCOUNT',
+        message: 'This Netlify account is already linked to your profile.',
+        status: 409,
+      };
+    }
+    throw e;
+  }
 }
 
 export async function createLinkedNetlifyAccount(

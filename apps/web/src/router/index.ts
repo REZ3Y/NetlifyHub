@@ -31,6 +31,21 @@ export const router = createRouter({
           name: 'registerNetlifyAccount',
           component: () => import('@/views/RegisterNetlifyAccountView.vue'),
         },
+        {
+          path: 'netlify-accounts',
+          name: 'netlifyAccountsList',
+          component: () => import('@/views/NetlifyAccountsListView.vue'),
+        },
+        {
+          path: 'netlify-accounts/:id/edit',
+          name: 'netlifyAccountEdit',
+          component: () => import('@/views/NetlifyAccountEditView.vue'),
+        },
+        {
+          path: 'netlify-accounts/:id',
+          name: 'netlifyAccountDetail',
+          component: () => import('@/views/NetlifyAccountDetailView.vue'),
+        },
         /** Must stay last: unknown paths under `/` fall through here (avoids root-level `/:pathMatch` stealing nested routes). */
         {
           path: ':pathMatch(.*)*',

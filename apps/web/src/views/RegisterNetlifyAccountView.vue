@@ -6,6 +6,7 @@ import { useMessage } from 'naive-ui';
 import { isAxiosError } from 'axios';
 import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
+import type { LinkedNetlifyAccount } from '@/types/netlify-linked-account';
 
 const { t } = useI18n();
 const message = useMessage();
@@ -20,23 +21,7 @@ const model = reactive({
   apiToken: '',
 });
 
-type LinkedAccount = {
-  id: string;
-  label: string | null;
-  netlifyId: string;
-  uid: string;
-  fullName: string | null;
-  avatarUrl: string | null;
-  email: string | null;
-  affiliateId: string | null;
-  siteCount: number;
-  netlifyCreatedAt: string | null;
-  netlifyLastLogin: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-const createdAccount = ref<LinkedAccount | null>(null);
+const createdAccount = ref<LinkedNetlifyAccount | null>(null);
 
 const noAutocompleteInputProps = {
   autocomplete: 'off' as const,
@@ -70,7 +55,7 @@ async function onSubmit() {
   await formRef.value?.validate();
   submitting.value = true;
   try {
-    const { data } = await http.post<{ account: LinkedAccount }>('/v1/netlify-accounts', {
+    const { data } = await http.post<{ account: LinkedNetlifyAccount }>('/v1/netlify-accounts', {
       title: model.title.trim() || undefined,
       apiToken: model.apiToken,
     });

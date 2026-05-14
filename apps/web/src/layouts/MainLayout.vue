@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n';
 import {
   BookOutline,
   GridOutline,
+  ListOutline,
   LogOutOutline,
   SettingsOutline,
   PersonAddOutline,
@@ -34,6 +35,11 @@ const menuOptions = computed(() => [
     icon: renderIcon(GridOutline),
   },
   {
+    label: t('nav.netlifyAccountsList'),
+    key: 'netlifyAccountsList',
+    icon: renderIcon(ListOutline),
+  },
+  {
     label: t('nav.registerNetlifyAccount'),
     key: 'registerNetlifyAccount',
     icon: renderIcon(PersonAddOutline),
@@ -48,12 +54,20 @@ const menuOptions = computed(() => [
 const activeKey = computed(() => {
   if (route.name === 'settings') return 'settings';
   if (route.name === 'registerNetlifyAccount') return 'registerNetlifyAccount';
+  if (
+    route.name === 'netlifyAccountsList' ||
+    route.name === 'netlifyAccountDetail' ||
+    route.name === 'netlifyAccountEdit'
+  ) {
+    return 'netlifyAccountsList';
+  }
   return 'dashboard';
 });
 
 const pathByMenuKey: Record<string, string> = {
   dashboard: '/',
   settings: '/settings',
+  netlifyAccountsList: '/netlify-accounts',
   registerNetlifyAccount: '/netlify-accounts/register',
 };
 
