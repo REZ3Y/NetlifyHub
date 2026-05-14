@@ -21,10 +21,11 @@ export const router = createRouter({
           component: () => import('@/views/DashboardView.vue'),
         },
         {
-          path: 'profile',
-          name: 'profile',
-          component: () => import('@/views/ProfileView.vue'),
+          path: 'settings',
+          name: 'settings',
+          component: () => import('@/views/SettingsView.vue'),
         },
+        { path: 'profile', redirect: { name: 'settings' } },
         {
           path: 'netlify-accounts/register',
           name: 'registerNetlifyAccount',

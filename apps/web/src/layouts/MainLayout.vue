@@ -6,7 +6,7 @@ import {
   BookOutline,
   GridOutline,
   LogOutOutline,
-  PersonOutline,
+  SettingsOutline,
   PersonAddOutline,
 } from '@vicons/ionicons5';
 import { NIcon, useMessage } from 'naive-ui';
@@ -38,21 +38,21 @@ const menuOptions = computed(() => [
     icon: renderIcon(PersonAddOutline),
   },
   {
-    label: t('nav.profile'),
-    key: 'profile',
-    icon: renderIcon(PersonOutline),
+    label: t('nav.settings'),
+    key: 'settings',
+    icon: renderIcon(SettingsOutline),
   },
 ]);
 
 const activeKey = computed(() => {
-  if (route.name === 'profile') return 'profile';
+  if (route.name === 'settings') return 'settings';
   if (route.name === 'registerNetlifyAccount') return 'registerNetlifyAccount';
   return 'dashboard';
 });
 
 const pathByMenuKey: Record<string, string> = {
   dashboard: '/',
-  profile: '/profile',
+  settings: '/settings',
   registerNetlifyAccount: '/netlify-accounts/register',
 };
 

@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma.js';
 import { createNetlifyClient } from '../integrations/netlify/index.js';
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
+import { createNetlifyFetchForUser } from '../lib/netlify-proxied-fetch.js';
 import { encryptSecret } from '../lib/token-crypto.js';
 import type { Env } from '../config/env.js';
 import { z } from 'zod';
@@ -85,7 +86,8 @@ export async function createLinkedNetlifyAccount(
     };
   }
 
-  const client = createNetlifyClient({ accessToken: input.apiToken });
+  const fetchImpl = await createNetlifyFetchForUser(env, userId);
+  const client = createNetlifyClient({ accessToken: input.apiToken, fetchImpl });
   let raw: unknown;
   try {
     raw = await client.user.get();

@@ -20,6 +20,17 @@ model User {
   role      Role      @default(VIEWER)
   /** IANA timezone for UI date formatting (e.g. Asia/Tehran). */
   timezone  String    @default("UTC")
+
+  /** When true, outbound Netlify API calls from handlers use this proxy. */
+  proxyEnabled Boolean @default(false)
+  /** `http` (CONNECT) or `socks5` — used only if proxyEnabled. */
+  proxyType    String?
+  proxyHost    String?
+  proxyPort    Int?
+  proxyUsername String?
+  /** Encrypted with TOKEN_ENCRYPTION_KEY (same as Netlify tokens). */
+  proxyPasswordEncrypted String?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   sessions  Session[]

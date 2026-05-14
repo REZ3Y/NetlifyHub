@@ -5,4 +5,11 @@ export type AuthUser = {
   timezone: string;
   createdAt?: string;
   updatedAt?: string;
+  proxyEnabled?: boolean;
+  proxyType?: 'http' | 'socks5' | null;
+  proxyHost?: string | null;
+  proxyPort?: number | null;
+  proxyUsername?: string | null;
+  /** Server does not return the password; only whether one is stored. */
+  proxyHasPassword?: boolean;
 };
