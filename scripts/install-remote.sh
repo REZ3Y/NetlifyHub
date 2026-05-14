@@ -1,19 +1,11 @@
 #!/usr/bin/env bash
 #
-# One-line installer entrypoint (intended to be piped from GitHub raw URL).
-# Example:
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/scripts/install-remote.sh | bash
+# Legacy remote entrypoint — prefer the repository root install.sh:
+#   bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 #
-# Override clone URL:
-#   NETLIFYHUB_REPO_URL=https://github.com/you/netlifyhub.git curl -fsSL ... | bash
+# This script fetches that file so old links and docs keep working.
 #
 set -euo pipefail
 
-DEFAULT_REPO="${NETLIFYHUB_REPO_URL:-https://github.com/your-org/netlifyhub.git}"
-TMP="$(mktemp -d)"
-trap 'rm -rf "${TMP}"' EXIT
-
-echo "Cloning NetlifyHub from ${DEFAULT_REPO} ..."
-git clone --depth 1 "${DEFAULT_REPO}" "${TMP}/netlifyhub"
-cd "${TMP}/netlifyhub"
-bash scripts/install.sh
+echo "NetlifyHub: use root installer — bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)" >&2
+exec bash <(curl -fsSL https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)

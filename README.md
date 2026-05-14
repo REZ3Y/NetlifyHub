@@ -35,10 +35,24 @@ Per [Netlify API documentation](https://docs.netlify.com/api-and-cli-guides/api-
 - pnpm 9 (`corepack enable && corepack prepare pnpm@9.14.2 --activate`)
 - PostgreSQL 16+ and Redis 7+ (local or Docker)
 
+## Install (recommended — one line)
+
+Repository: [https://github.com/REZ3Y/NetlifyHub](https://github.com/REZ3Y/NetlifyHub)
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+```
+
+This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), installs dependencies, runs migrations (PostgreSQL must match `DATABASE_URL` in `apps/api/.env`), and launches the interactive admin bootstrap.
+
+To install from a fork or mirror, set `NETLIFYHUB_REPO_URL` before the command (for example `https://github.com/your-user/NetlifyHub.git`).
+
+If you already cloned the repository, run `bash install.sh` or `bash scripts/install.sh` from the repo root instead.
+
 ## Quick start (manual)
 
 ```bash
-git clone <your-fork-url> netlifyhub && cd netlifyhub
+git clone https://github.com/REZ3Y/NetlifyHub.git netlifyhub && cd netlifyhub
 pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/worker/.env.example apps/worker/.env
@@ -68,16 +82,6 @@ The normal `api` service entrypoint already runs `prisma migrate deploy` and `pr
 
 - Web UI (Compose): `http://localhost:8080` (proxies `/v1` to API)
 - API direct: `http://localhost:3000`
-
-## One-line install (GitHub)
-
-After publishing the repository, expose `scripts/install-remote.sh` and run:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/<org>/<repo>/main/scripts/install-remote.sh | bash
-```
-
-Set `NETLIFYHUB_REPO_URL` if the default inside the script does not match your fork.
 
 ## Environment variables
 

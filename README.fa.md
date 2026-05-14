@@ -33,10 +33,24 @@ NetlifyHub یک پنل تحت وب **Production-Grade** برای مدیریت ت
 - pnpm 9
 - PostgreSQL 16 و Redis 7 (محلی یا Docker)
 
+## نصب پیشنهادی (یک خط)
+
+مخزن: [https://github.com/REZ3Y/NetlifyHub](https://github.com/REZ3Y/NetlifyHub)
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+```
+
+این دستور [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git) را کلون می‌کند، وابستگی‌ها را نصب می‌کند، مایگریشن را اجرا می‌کند (PostgreSQL باید با `DATABASE_URL` در `apps/api/.env` هماهنگ باشد) و سپس ساخت ادمین اولیه را به‌صورت تعاملی اجرا می‌کند.
+
+برای نصب از Fork یا آینهٔ دیگر، قبل از دستور متغیر `NETLIFYHUB_REPO_URL` را تنظیم کنید (مثلاً `https://github.com/your-user/NetlifyHub.git`).
+
+اگر قبلاً مخزن را کلون کرده‌اید، از ریشهٔ پروژه `bash install.sh` یا `bash scripts/install.sh` را اجرا کنید.
+
 ## نصب دستی
 
 ```bash
-git clone <آدرس-مخزن> netlifyhub && cd netlifyhub
+git clone https://github.com/REZ3Y/NetlifyHub.git netlifyhub && cd netlifyhub
 pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/worker/.env.example apps/worker/.env
@@ -57,14 +71,6 @@ pnpm dev
 3. برای ایجاد ادمین در اولین بالا آمدن، در `.env` مقداردهی کنید: `SEED_ADMIN_USERNAME` و `SEED_ADMIN_PASSWORD` (فقط وقتی هنوز کاربری در دیتابیس نیست).
 
 رابط وب روی پورت **۸۰۸۰** و API روی **۳۰۰۰** در دسترس است.
-
-## نصب یک‌خطی (GitHub)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/<org>/<repo>/main/scripts/install-remote.sh | bash
-```
-
-می‌توانید با متغیر `NETLIFYHUB_REPO_URL` آدرس مخزن را مشخص کنید.
 
 ## متغیرهای محیطی
 
