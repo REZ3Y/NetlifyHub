@@ -100,6 +100,7 @@ export const messages = {
         passwordMin: 'At least 8 characters',
         currentRequired: 'Current password is required',
       },
+      passwordChangeError: 'Could not update password',
     },
     common: {
       language: 'Language',
@@ -212,6 +213,7 @@ export const messages = {
         passwordMin: 'حداقل ۸ نویسه',
         currentRequired: 'رمز فعلی الزامی است',
       },
+      passwordChangeError: 'تغییر رمز انجام نشد',
     },
     common: {
       language: 'زبان',

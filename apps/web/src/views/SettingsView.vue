@@ -6,6 +6,7 @@ import { useMessage } from 'naive-ui';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { http } from '@/api/http';
+import { isAxiosError } from 'axios';
 import { listIanaTimeZones, useUserDateTime } from '@/composables/useUserDateTime';
 import type { AuthUser } from '@/types/auth';
 
@@ -117,7 +118,11 @@ async function saveTimezone() {
 }
 
 async function savePassword() {
-  await passwordForm.value?.validate();
+  try {
+    await passwordForm.value?.validate();
+  } catch {
+    return;
+  }
   savingPassword.value = true;
   try {
     const { data } = await http.patch<{ mustReauth?: boolean; user?: AuthUser }>('/v1/me', {
@@ -127,9 +132,11 @@ async function savePassword() {
     passwordModel.currentPassword = '';
     passwordModel.newPassword = '';
     if (data.mustReauth) {
-      message.warning(t('profile.reauth'));
+      message.warning(t('profile.reauth'), { duration: 4500 });
       auth.setUser(null);
-      void router.push({ name: 'login' });
+      window.setTimeout(() => {
+        void router.push({ name: 'login' });
+      }, 450);
       return;
     }
     if (data.user) {
@@ -137,6 +144,19 @@ async function savePassword() {
       applyUserToForms(data.user);
     }
     message.success(t('profile.saved'));
+  } catch (e) {
+    if (isAxiosError(e)) {
+      const msg =
+        typeof e.response?.data === 'object' &&
+        e.response?.data !== null &&
+        'message' in e.response.data &&
+        typeof (e.response.data as { message: unknown }).message === 'string'
+          ? (e.response.data as { message: string }).message
+          : t('profile.passwordChangeError');
+      message.error(msg);
+      return;
+    }
+    message.error(t('profile.passwordChangeError'));
   } finally {
     savingPassword.value = false;
   }

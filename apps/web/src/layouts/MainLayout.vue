@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h } from 'vue';
+import { computed, h, ref } from 'vue';
 import { RouterView, useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
@@ -19,6 +19,7 @@ const router = useRouter();
 const auth = useAuthStore();
 const message = useMessage();
 const { mode: themeMode } = useAppTheme();
+const siderCollapsed = ref(false);
 
 const dir = computed(() => (locale.value === 'fa' ? 'rtl' : 'ltr'));
 
@@ -86,6 +87,7 @@ function onThemeSelect(v: ThemeMode) {
 <template>
   <n-layout has-sider position="absolute" :dir="dir">
     <n-layout-sider
+      v-model:collapsed="siderCollapsed"
       bordered
       show-trigger
       collapse-mode="width"
@@ -93,9 +95,9 @@ function onThemeSelect(v: ThemeMode) {
       :width="240"
       content-style="display:flex;flex-direction:column;"
     >
-      <div class="brand">
+      <div class="brand" :class="{ 'brand--collapsed': siderCollapsed }">
         <n-icon size="22" :component="BookOutline" />
-        <span class="brand-text">{{ t('app.title') }}</span>
+        <span v-show="!siderCollapsed" class="brand-text">{{ t('app.title') }}</span>
       </div>
       <n-menu
         :value="activeKey"
@@ -103,19 +105,19 @@ function onThemeSelect(v: ThemeMode) {
         :collapsed-width="64"
         @update:value="onMenuSelect"
       />
-      <div class="sider-footer">
+      <div class="sider-footer" :class="{ 'sider-footer--collapsed': siderCollapsed }">
         <n-button quaternary block @click="onLogout">
           <template #icon>
             <n-icon :component="LogOutOutline" />
           </template>
-          {{ t('nav.logout') }}
+          <span v-show="!siderCollapsed">{{ t('nav.logout') }}</span>
         </n-button>
       </div>
     </n-layout-sider>
     <n-layout :native-scrollbar="false">
       <n-layout-header bordered class="header">
         <n-space align="center" justify="space-between" style="width: 100%">
-          <n-text strong>{{ t('app.title') }}</n-text>
+          <n-text v-show="!siderCollapsed" strong>{{ t('app.title') }}</n-text>
           <n-space>
             <n-select
               size="small"
@@ -159,6 +161,18 @@ function onThemeSelect(v: ThemeMode) {
 .sider-footer {
   margin-top: auto;
   padding: 12px;
+}
+.brand--collapsed {
+  justify-content: center;
+  gap: 0;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.sider-footer--collapsed :deep(.n-button .n-button__content) {
+  justify-content: center;
+}
+.sider-footer--collapsed :deep(.n-button .n-button__icon) {
+  margin: 0;
 }
 .header {
   height: 64px;
