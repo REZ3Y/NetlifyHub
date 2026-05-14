@@ -23,7 +23,7 @@ NetlifyHub is a production-oriented web control plane for operating many Netlify
 | `@netlifyhub/worker` | BullMQ consumer (placeholder jobs)        |
 | `@netlifyhub/shared` | Shared constants (API prefix, rate hints) |
 
-The dashboard talks to the API over `/v1`. In local development the Vite dev server proxies `/v1` to the API. In Docker, Nginx on the web container proxies `/v1` to the `api` service.
+The dashboard talks to the API over `/v1`. In local development the Vite dev server proxies `/v1` to the API. In Docker, the static web image is served with **Node `serve`**; the browser calls the API using **`VITE_API_BASE`** (see `.env.docker.example`), so set it to the URL users will use to reach the API (for example `http://localhost:3000` when publishing ports `8080` and `3000` on the same host).
 
 ## Netlify API notes
 
@@ -84,8 +84,8 @@ docker compose run --rm -e SEED_ADMIN_USERNAME=admin -e SEED_ADMIN_PASSWORD='you
 
 The normal `api` service entrypoint already runs `prisma migrate deploy` and `prisma db seed` on startup. When `SEED_ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` are set and no users exist, seed creates an `ADMIN` user.
 
-- Web UI (Compose): `http://localhost:8080` (proxies `/v1` to API)
-- API direct: `http://localhost:3000`
+- Web UI (Compose): `http://localhost:8080` (static SPA; API is `VITE_API_BASE`, default `http://localhost:3000`)
+- API: `http://localhost:3000`
 
 ## Environment variables
 
@@ -99,6 +99,8 @@ See `apps/api/.env.example`, `apps/worker/.env.example`, and `apps/web/.env.exam
 | `WEB_ORIGIN`           | Exact browser origin allowed by CORS                                    |
 | `COOKIE_SECURE`        | `true` / `false`; defaults from `NODE_ENV`                              |
 | `TOKEN_ENCRYPTION_KEY` | Optional 32+ chars for encrypting Netlify tokens at rest (later phases) |
+
+Docker Compose reads the repo-root `.env` for **`VITE_API_BASE`** and **`VITE_APP_TITLE`** when building the **web** image (see `.env.docker.example`). Change `VITE_API_BASE` before `docker compose build` if the API is exposed on a different public URL than `http://localhost:3000`.
 
 ## Development scripts
 
