@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { FormInst, FormRules } from 'naive-ui';
 import { useMessage } from 'naive-ui';
@@ -100,6 +100,47 @@ function closeSuccessModal() {
   showSuccess.value = false;
   createdAccount.value = null;
 }
+
+type SummaryRow = { key: string; label: string; value: string; breakAll?: boolean };
+
+const accountSummaryRows = computed<SummaryRow[]>(() => {
+  const a = createdAccount.value;
+  if (!a) return [];
+  return [
+    { key: 'panelTitle', label: t('netlifyAccounts.fields.panelTitle'), value: a.label ?? '—' },
+    { key: 'netlifyId', label: t('netlifyAccounts.fields.netlifyId'), value: a.netlifyId },
+    { key: 'uid', label: t('netlifyAccounts.fields.uid'), value: a.uid },
+    { key: 'fullName', label: t('netlifyAccounts.fields.fullName'), value: a.fullName ?? '—' },
+    { key: 'email', label: t('netlifyAccounts.fields.email'), value: a.email ?? '—' },
+    {
+      key: 'avatarUrl',
+      label: t('netlifyAccounts.fields.avatarUrl'),
+      value: a.avatarUrl ?? '—',
+      breakAll: !!a.avatarUrl,
+    },
+    {
+      key: 'affiliateId',
+      label: t('netlifyAccounts.fields.affiliateId'),
+      value: a.affiliateId ?? '—',
+    },
+    { key: 'siteCount', label: t('netlifyAccounts.fields.siteCount'), value: String(a.siteCount) },
+    {
+      key: 'createdAt',
+      label: t('netlifyAccounts.fields.createdAt'),
+      value: formatNetlifyInstant(a.netlifyCreatedAt),
+    },
+    {
+      key: 'lastLogin',
+      label: t('netlifyAccounts.fields.lastLogin'),
+      value: formatNetlifyInstant(a.netlifyLastLogin),
+    },
+    {
+      key: 'linkedAt',
+      label: t('netlifyAccounts.fields.linkedAt'),
+      value: formatDateTime(a.createdAt),
+    },
+  ];
+});
 </script>
 
 <template>
@@ -156,44 +197,25 @@ function closeSuccessModal() {
       </n-alert>
 
       <template v-if="createdAccount">
-        <n-descriptions bordered :column="1" size="small" label-style="width: 38%">
-          <n-descriptions-item :label="t('netlifyAccounts.fields.panelTitle')">
-            {{ createdAccount.label ?? '—' }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.netlifyId')">
-            {{ createdAccount.netlifyId }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.uid')">
-            {{ createdAccount.uid }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.fullName')">
-            {{ createdAccount.fullName ?? '—' }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.email')">
-            {{ createdAccount.email ?? '—' }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.avatarUrl')">
-            <n-text v-if="createdAccount.avatarUrl" style="word-break: break-all">
-              {{ createdAccount.avatarUrl }}
-            </n-text>
-            <span v-else>—</span>
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.affiliateId')">
-            {{ createdAccount.affiliateId ?? '—' }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.siteCount')">
-            {{ createdAccount.siteCount }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.createdAt')">
-            {{ formatNetlifyInstant(createdAccount.netlifyCreatedAt) }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.lastLogin')">
-            {{ formatNetlifyInstant(createdAccount.netlifyLastLogin) }}
-          </n-descriptions-item>
-          <n-descriptions-item :label="t('netlifyAccounts.fields.linkedAt')">
-            {{ formatDateTime(createdAccount.createdAt) }}
-          </n-descriptions-item>
-        </n-descriptions>
+        <n-table bordered :single-line="false" size="small" class="account-summary-table">
+          <thead>
+            <tr>
+              <th scope="col" class="account-summary-table__th-label">
+                {{ t('netlifyAccounts.summaryColumnLabel') }}
+              </th>
+              <th scope="col">{{ t('netlifyAccounts.summaryColumnValue') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in accountSummaryRows" :key="row.key">
+              <td class="account-summary-table__td-label">{{ row.label }}</td>
+              <td>
+                <n-text v-if="row.breakAll" style="word-break: break-all">{{ row.value }}</n-text>
+                <template v-else>{{ row.value }}</template>
+              </td>
+            </tr>
+          </tbody>
+        </n-table>
       </template>
 
       <n-space justify="end">
@@ -202,3 +224,16 @@ function closeSuccessModal() {
     </n-space>
   </n-modal>
 </template>
+
+<style scoped>
+.account-summary-table {
+  width: 100%;
+  table-layout: fixed;
+}
+.account-summary-table__th-label,
+.account-summary-table__td-label {
+  width: 38%;
+  vertical-align: top;
+  white-space: normal;
+}
+</style>

@@ -184,134 +184,177 @@ async function saveProxy() {
 </script>
 
 <template>
-  <n-space vertical size="large" style="max-width: 560px">
+  <n-space vertical size="large" class="settings-page">
     <n-h2>{{ t('settings.title') }}</n-h2>
 
-    <n-h3 style="margin: 0">{{ t('settings.sectionProfile') }}</n-h3>
-
-    <n-card :title="t('profile.username')" :segmented="{ content: true }">
-      <n-form ref="profileForm" :model="profileModel" :rules="profileRules" label-placement="top">
-        <n-form-item path="username" :label="t('profile.username')">
-          <n-input v-model:value="profileModel.username" autocomplete="username" />
-        </n-form-item>
-        <n-text v-if="auth.user?.createdAt" depth="3" style="display: block; margin-bottom: 12px">
-          {{ t('profile.memberSince') }}: {{ formatDateTime(auth.user.createdAt) }}
-        </n-text>
-        <n-button type="primary" :loading="savingProfile" @click="saveUsername">
-          {{ t('profile.saveUsername') }}
-        </n-button>
-      </n-form>
-    </n-card>
-
-    <n-card :title="t('profile.changePassword')" :segmented="{ content: true }">
-      <n-form
-        ref="passwordForm"
-        :model="passwordModel"
-        :rules="passwordRules"
-        label-placement="top"
-      >
-        <n-form-item path="currentPassword" :label="t('profile.currentPassword')">
-          <n-input
-            v-model:value="passwordModel.currentPassword"
-            type="password"
-            show-password-on="click"
-            autocomplete="current-password"
-          />
-        </n-form-item>
-        <n-form-item path="newPassword" :label="t('profile.newPassword')">
-          <n-input
-            v-model:value="passwordModel.newPassword"
-            type="password"
-            show-password-on="click"
-            autocomplete="new-password"
-          />
-        </n-form-item>
-        <n-button type="primary" :loading="savingPassword" @click="savePassword">
-          {{ t('profile.changePassword') }}
-        </n-button>
-      </n-form>
-    </n-card>
-
-    <n-h3 style="margin: 0">{{ t('settings.sectionOther') }}</n-h3>
-
-    <n-card :title="t('profile.timezone')" :segmented="{ content: true }">
-      <n-p depth="3" style="margin-top: 0">{{ t('profile.timezoneHint') }}</n-p>
-      <n-form label-placement="top">
-        <n-form-item :label="t('profile.timezone')">
-          <n-select
-            v-model:value="profileModel.timezone"
-            filterable
-            :options="timezoneOptions"
-            :consistent-menu-width="false"
-          />
-        </n-form-item>
-        <n-button type="primary" :loading="savingTimezone" @click="saveTimezone">
-          {{ t('profile.saveTimezone') }}
-        </n-button>
-      </n-form>
-    </n-card>
-
-    <n-card :title="t('settings.proxy.title')" :segmented="{ content: true }">
-      <n-p depth="3" style="margin-top: 0">{{ t('settings.proxy.hint') }}</n-p>
-      <n-space vertical size="medium" style="width: 100%">
-        <n-space align="center" justify="space-between" style="width: 100%">
-          <n-text>{{ t('settings.proxy.enable') }}</n-text>
-          <n-switch v-model:value="proxyModel.enabled" />
+    <div class="settings-columns">
+      <section class="settings-column">
+        <n-h3 class="settings-column__title">{{ t('settings.sectionProxy') }}</n-h3>
+        <n-space vertical size="large" style="width: 100%">
+          <n-card :title="t('settings.proxy.title')" :segmented="{ content: true }">
+            <n-p depth="3" style="margin-top: 0">{{ t('settings.proxy.hint') }}</n-p>
+            <n-space vertical size="medium" style="width: 100%">
+              <n-space align="center" justify="space-between" style="width: 100%">
+                <n-text>{{ t('settings.proxy.enable') }}</n-text>
+                <n-switch v-model:value="proxyModel.enabled" />
+              </n-space>
+              <n-form label-placement="top">
+                <n-form-item :label="t('settings.proxy.type')">
+                  <n-select v-model:value="proxyModel.type" :options="proxyTypeOptions" />
+                </n-form-item>
+                <n-form-item :label="t('settings.proxy.host')">
+                  <n-input
+                    v-model:value="proxyModel.host"
+                    :placeholder="t('settings.proxy.hostPlaceholder')"
+                  />
+                </n-form-item>
+                <n-form-item :label="t('settings.proxy.port')">
+                  <n-input-number
+                    v-model:value="proxyModel.port"
+                    :min="1"
+                    :max="65535"
+                    :show-button="false"
+                    style="width: 100%"
+                  />
+                </n-form-item>
+                <n-form-item :label="t('settings.proxy.username')">
+                  <n-input
+                    v-model:value="proxyModel.username"
+                    :placeholder="t('settings.proxy.optional')"
+                    autocomplete="off"
+                  />
+                </n-form-item>
+                <n-form-item :label="t('settings.proxy.password')">
+                  <n-input
+                    v-model:value="proxyPasswordInput"
+                    type="password"
+                    show-password-on="click"
+                    :placeholder="
+                      auth.user?.proxyHasPassword
+                        ? t('settings.proxy.passwordPlaceholder')
+                        : t('settings.proxy.optional')
+                    "
+                    autocomplete="new-password"
+                  />
+                  <n-text
+                    v-if="auth.user?.proxyHasPassword"
+                    depth="3"
+                    style="display: block; margin-top: 8px"
+                  >
+                    {{ t('settings.proxy.passwordStored') }}
+                  </n-text>
+                </n-form-item>
+                <n-button quaternary size="small" @click="onClearProxyPassword">
+                  {{ t('settings.proxy.clearPassword') }}
+                </n-button>
+              </n-form>
+              <n-button type="primary" :loading="savingProxy" @click="saveProxy">
+                {{ t('settings.proxy.save') }}
+              </n-button>
+            </n-space>
+          </n-card>
         </n-space>
-        <n-form label-placement="top">
-          <n-form-item :label="t('settings.proxy.type')">
-            <n-select v-model:value="proxyModel.type" :options="proxyTypeOptions" />
-          </n-form-item>
-          <n-form-item :label="t('settings.proxy.host')">
-            <n-input
-              v-model:value="proxyModel.host"
-              :placeholder="t('settings.proxy.hostPlaceholder')"
-            />
-          </n-form-item>
-          <n-form-item :label="t('settings.proxy.port')">
-            <n-input-number
-              v-model:value="proxyModel.port"
-              :min="1"
-              :max="65535"
-              :show-button="false"
-              style="width: 100%"
-            />
-          </n-form-item>
-          <n-form-item :label="t('settings.proxy.username')">
-            <n-input
-              v-model:value="proxyModel.username"
-              :placeholder="t('settings.proxy.optional')"
-              autocomplete="off"
-            />
-          </n-form-item>
-          <n-form-item :label="t('settings.proxy.password')">
-            <n-input
-              v-model:value="proxyPasswordInput"
-              type="password"
-              show-password-on="click"
-              :placeholder="
-                auth.user?.proxyHasPassword
-                  ? t('settings.proxy.passwordPlaceholder')
-                  : t('settings.proxy.optional')
-              "
-              autocomplete="new-password"
-            />
-            <n-text
-              v-if="auth.user?.proxyHasPassword"
-              depth="3"
-              style="display: block; margin-top: 8px"
+      </section>
+
+      <section class="settings-column">
+        <n-h3 class="settings-column__title">{{ t('settings.sectionProfile') }}</n-h3>
+        <n-space vertical size="large" style="width: 100%">
+          <n-card :title="t('profile.username')" :segmented="{ content: true }">
+            <n-form
+              ref="profileForm"
+              :model="profileModel"
+              :rules="profileRules"
+              label-placement="top"
             >
-              {{ t('settings.proxy.passwordStored') }}
-            </n-text>
-          </n-form-item>
-          <n-button quaternary size="small" @click="onClearProxyPassword">
-            {{ t('settings.proxy.clearPassword') }}
-          </n-button>
-        </n-form>
-        <n-button type="primary" :loading="savingProxy" @click="saveProxy">
-          {{ t('settings.proxy.save') }}
-        </n-button>
-      </n-space>
-    </n-card>
+              <n-form-item path="username" :label="t('profile.username')">
+                <n-input v-model:value="profileModel.username" autocomplete="username" />
+              </n-form-item>
+              <n-text
+                v-if="auth.user?.createdAt"
+                depth="3"
+                style="display: block; margin-bottom: 12px"
+              >
+                {{ t('profile.memberSince') }}: {{ formatDateTime(auth.user.createdAt) }}
+              </n-text>
+              <n-button type="primary" :loading="savingProfile" @click="saveUsername">
+                {{ t('profile.saveUsername') }}
+              </n-button>
+            </n-form>
+          </n-card>
+
+          <n-card :title="t('profile.changePassword')" :segmented="{ content: true }">
+            <n-form
+              ref="passwordForm"
+              :model="passwordModel"
+              :rules="passwordRules"
+              label-placement="top"
+            >
+              <n-form-item path="currentPassword" :label="t('profile.currentPassword')">
+                <n-input
+                  v-model:value="passwordModel.currentPassword"
+                  type="password"
+                  show-password-on="click"
+                  autocomplete="current-password"
+                />
+              </n-form-item>
+              <n-form-item path="newPassword" :label="t('profile.newPassword')">
+                <n-input
+                  v-model:value="passwordModel.newPassword"
+                  type="password"
+                  show-password-on="click"
+                  autocomplete="new-password"
+                />
+              </n-form-item>
+              <n-button type="primary" :loading="savingPassword" @click="savePassword">
+                {{ t('profile.changePassword') }}
+              </n-button>
+            </n-form>
+          </n-card>
+        </n-space>
+      </section>
+
+      <section class="settings-column">
+        <n-h3 class="settings-column__title">{{ t('settings.sectionMain') }}</n-h3>
+        <n-space vertical size="large" style="width: 100%">
+          <n-card :title="t('profile.timezone')" :segmented="{ content: true }">
+            <n-p depth="3" style="margin-top: 0">{{ t('profile.timezoneHint') }}</n-p>
+            <n-form label-placement="top">
+              <n-form-item :label="t('profile.timezone')">
+                <n-select
+                  v-model:value="profileModel.timezone"
+                  filterable
+                  :options="timezoneOptions"
+                  :consistent-menu-width="false"
+                />
+              </n-form-item>
+              <n-button type="primary" :loading="savingTimezone" @click="saveTimezone">
+                {{ t('profile.saveTimezone') }}
+              </n-button>
+            </n-form>
+          </n-card>
+        </n-space>
+      </section>
+    </div>
   </n-space>
 </template>
+
+<style scoped>
+.settings-page {
+  max-width: 1320px;
+}
+.settings-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+}
+.settings-column__title {
+  margin: 0 0 12px;
+}
+@media (max-width: 1180px) {
+  .settings-columns {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

@@ -38,6 +38,8 @@ export const messages = {
       submitError: 'Could not link the account',
       successTitle: 'Account linked',
       successIntro: 'The Netlify account below was added successfully.',
+      summaryColumnLabel: 'Field',
+      summaryColumnValue: 'Value',
       rules: { tokenRequired: 'API token is required' },
       fields: {
         panelTitle: 'Panel title',
@@ -56,7 +58,8 @@ export const messages = {
     settings: {
       title: 'Settings',
       sectionProfile: 'Profile settings',
-      sectionOther: 'Other settings',
+      sectionMain: 'Main settings',
+      sectionProxy: 'Proxy settings',
       proxy: {
         title: 'Outbound proxy (Netlify API)',
         hint: 'When enabled, all server-side requests from this panel to Netlify go through the proxy below.',
@@ -147,6 +150,8 @@ export const messages = {
       submitError: 'ثبت اکانت انجام نشد',
       successTitle: 'اکانت با موفقیت اضافه شد',
       successIntro: 'اکانت نتلیفای با مشخصات زیر با موفقیت به پنل اضافه شد.',
+      summaryColumnLabel: 'فیلد',
+      summaryColumnValue: 'مقدار',
       rules: { tokenRequired: 'وارد کردن توکن API الزامی است' },
       fields: {
         panelTitle: 'عنوان در پنل',
@@ -165,7 +170,8 @@ export const messages = {
     settings: {
       title: 'تنظیمات',
       sectionProfile: 'تنظیمات پروفایل',
-      sectionOther: 'سایر تنظیمات',
+      sectionMain: 'تنظیمات اصلی',
+      sectionProxy: 'تنظیمات پروکسی',
       proxy: {
         title: 'پروکسی خروجی (API نتلیفای)',
         hint: 'در صورت روشن بودن، تمام درخواست‌های سمت سرور این پنل به نتلیفای از پروکسی زیر عبور داده می‌شوند.',
