@@ -5,7 +5,7 @@ import {
   createLinkedNetlifyAccount,
   deleteLinkedNetlifyAccount,
   getLinkedNetlifyAccount,
-  listLinkedNetlifyAccounts,
+  listLinkedNetlifyAccountsPaged,
   setLinkedNetlifyAccountEnabled,
   updateLinkedNetlifyAccount,
 } from '../services/netlify-linked-account.service.js';
@@ -16,6 +16,11 @@ const createBody = z.object({
 });
 
 const idParams = z.object({ id: z.string().min(1) });
+
+const listQuery = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+});
 
 const patchBody = z
   .object({
@@ -39,8 +44,19 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', async (request, reply) => {
     const user = await authenticateRequest(request, reply);
     if (!user) return;
-    const accounts = await listLinkedNetlifyAccounts(user.id);
-    return { accounts };
+
+    const q = listQuery.safeParse(request.query);
+    if (!q.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid query',
+        details: q.error.flatten(),
+      });
+    }
+
+    const { page, pageSize } = q.data;
+    const { accounts, total } = await listLinkedNetlifyAccountsPaged(user.id, { page, pageSize });
+    return { accounts, total, page, pageSize };
   });
 
   app.post('/', async (request, reply) => {

@@ -52,7 +52,7 @@ export const messages = {
         affiliateId: 'Affiliate id',
         siteCount: 'Site count',
         createdAt: 'Netlify created at',
-        lastLogin: 'Last login (Netlify)',
+        lastLogin: 'Last login',
         linkedAt: 'Linked at',
       },
     },
@@ -64,8 +64,8 @@ export const messages = {
       colRow: '#',
       colTitle: 'Title',
       colEmail: 'Email',
-      colNetlifyCreated: 'Created (Netlify)',
-      colLastLogin: 'Last login (Netlify)',
+      colNetlifyCreated: 'Created',
+      colLastLogin: 'Last login',
       colActions: 'Actions',
       emptyHint:
         'You have not linked any Netlify account yet. Use the button below to register a new account and add your API token.',
@@ -118,7 +118,7 @@ export const messages = {
       sectionMain: 'Main settings',
       sectionProxy: 'Proxy settings',
       proxy: {
-        title: 'Outbound proxy (Netlify API)',
+        title: 'Outbound proxy',
         hint: 'When enabled, all server-side requests from this panel to Netlify go through the proxy below.',
         enable: 'Use proxy for Netlify requests',
         type: 'Proxy type',

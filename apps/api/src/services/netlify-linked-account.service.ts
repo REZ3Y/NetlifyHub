@@ -124,15 +124,22 @@ const accountSelect = {
   updatedAt: true,
 } as const;
 
-export async function listLinkedNetlifyAccounts(
-  userId: string
-): Promise<LinkedNetlifyAccountDto[]> {
-  const rows = await prisma.netlifyLinkedAccount.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    select: accountSelect,
-  });
-  return rows.map(toDto);
+export async function listLinkedNetlifyAccountsPaged(
+  userId: string,
+  opts: { page: number; pageSize: number }
+): Promise<{ accounts: LinkedNetlifyAccountDto[]; total: number }> {
+  const skip = (opts.page - 1) * opts.pageSize;
+  const [rows, total] = await Promise.all([
+    prisma.netlifyLinkedAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: opts.pageSize,
+      select: accountSelect,
+    }),
+    prisma.netlifyLinkedAccount.count({ where: { userId } }),
+  ]);
+  return { accounts: rows.map(toDto), total };
 }
 
 export async function getLinkedNetlifyAccount(

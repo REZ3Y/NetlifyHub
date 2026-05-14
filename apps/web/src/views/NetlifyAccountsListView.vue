@@ -20,7 +20,12 @@ const router = useRouter();
 const message = useMessage();
 const { formatDateTime } = useUserDateTime();
 
+const PAGE_SIZE = 50;
+
 const loading = ref(true);
+const page = ref(1);
+const pageSize = ref(PAGE_SIZE);
+const total = ref(0);
 const accounts = ref<LinkedNetlifyAccount[]>([]);
 const togglingId = ref<string | null>(null);
 const deletingId = ref<string | null>(null);
@@ -38,17 +43,31 @@ function formatNetlifyInstant(value: string | null): string {
 async function load() {
   loading.value = true;
   try {
-    const { data } = await http.get<{ accounts: LinkedNetlifyAccount[] }>('/v1/netlify-accounts');
+    const { data } = await http.get<{
+      accounts: LinkedNetlifyAccount[];
+      total: number;
+      page: number;
+      pageSize: number;
+    }>('/v1/netlify-accounts', {
+      params: { page: page.value, pageSize: pageSize.value },
+    });
     accounts.value = data.accounts;
+    total.value = data.total;
   } catch {
     message.error(t('netlifyAccountsList.loadError'));
     accounts.value = [];
+    total.value = 0;
   } finally {
     loading.value = false;
   }
 }
 
 onMounted(() => void load());
+
+function onPageChange(p: number) {
+  page.value = p;
+  void load();
+}
 
 function goRegister() {
   void router.push({ name: 'registerNetlifyAccount' });
@@ -80,7 +99,11 @@ async function confirmDelete() {
     await http.delete(`/v1/netlify-accounts/${row.id}`);
     message.success(t('netlifyAccountsList.deleteSuccess'));
     closeDeleteModal();
-    accounts.value = accounts.value.filter((a) => a.id !== row.id);
+    await load();
+    if (accounts.value.length === 0 && page.value > 1) {
+      page.value -= 1;
+      await load();
+    }
   } catch (e) {
     if (isAxiosError(e)) {
       const msg =
@@ -137,113 +160,136 @@ function renderIcon(icon: typeof EyeOutline) {
     </div>
 
     <n-spin :show="loading">
-      <n-card :segmented="{ content: true }" content-style="padding: 0">
-        <div class="table-wrap">
-          <table class="accounts-table">
-            <thead>
-              <tr>
-                <th scope="col" class="col-idx">{{ t('netlifyAccountsList.colRow') }}</th>
-                <th scope="col">{{ t('netlifyAccountsList.colTitle') }}</th>
-                <th scope="col">{{ t('netlifyAccountsList.colEmail') }}</th>
-                <th scope="col">{{ t('netlifyAccountsList.colNetlifyCreated') }}</th>
-                <th scope="col">{{ t('netlifyAccountsList.colLastLogin') }}</th>
-                <th scope="col" class="col-actions">{{ t('netlifyAccountsList.colActions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="!loading && accounts.length === 0" class="empty-row">
-                <td colspan="6">
-                  <div class="empty-inner">
-                    <n-alert type="info" :show-icon="true" class="empty-alert">
-                      {{ t('netlifyAccountsList.emptyHint') }}
-                    </n-alert>
-                    <n-button type="primary" @click="goRegister">
-                      {{ t('netlifyAccountsList.emptyCta') }}
-                    </n-button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-for="(row, index) in accounts" :key="row.id">
-                <td class="col-idx tabular-nums">{{ index + 1 }}</td>
-                <td>{{ row.label?.trim() ? row.label : '—' }}</td>
-                <td>{{ row.email ?? '—' }}</td>
-                <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyCreatedAt) }}</td>
-                <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyLastLogin) }}</td>
-                <td class="col-actions">
-                  <n-space :size="4" justify="end" :wrap="false">
-                    <n-tooltip trigger="hover">
-                      <template #trigger>
-                        <n-button
-                          quaternary
-                          circle
-                          size="small"
-                          type="info"
-                          :render-icon="renderIcon(EyeOutline)"
-                          :focusable="false"
-                          @click="goDetail(row.id)"
-                        />
-                      </template>
-                      {{ t('netlifyAccountsList.actionView') }}
-                    </n-tooltip>
-                    <n-tooltip trigger="hover">
-                      <template #trigger>
-                        <n-button
-                          quaternary
-                          circle
-                          size="small"
-                          type="primary"
-                          :render-icon="renderIcon(CreateOutline)"
-                          :focusable="false"
-                          @click="goEdit(row.id)"
-                        />
-                      </template>
-                      {{ t('netlifyAccountsList.actionEdit') }}
-                    </n-tooltip>
-                    <n-tooltip trigger="hover">
-                      <template #trigger>
-                        <n-button
-                          quaternary
-                          circle
-                          size="small"
-                          type="error"
-                          :render-icon="renderIcon(TrashOutline)"
-                          :focusable="false"
-                          :disabled="deletingId === row.id"
-                          @click="openDeleteModal(row)"
-                        />
-                      </template>
-                      {{ t('netlifyAccountsList.actionDelete') }}
-                    </n-tooltip>
-                    <n-tooltip trigger="hover">
-                      <template #trigger>
-                        <n-button
-                          quaternary
-                          circle
-                          size="small"
-                          :type="row.enabled ? 'success' : 'warning'"
-                          :loading="togglingId === row.id"
-                          :render-icon="
-                            row.enabled
-                              ? renderIcon(PauseCircleOutline)
-                              : renderIcon(PlayCircleOutline)
-                          "
-                          :focusable="false"
-                          @click="toggleEnabled(row)"
-                        />
-                      </template>
-                      {{
-                        row.enabled
-                          ? t('netlifyAccountsList.actionDisable')
-                          : t('netlifyAccountsList.actionEnable')
-                      }}
-                    </n-tooltip>
-                  </n-space>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </n-card>
+      <n-space vertical size="medium" style="width: 100%">
+        <n-card :segmented="{ content: true }" content-style="padding: 0">
+          <div class="table-wrap">
+            <table class="accounts-table">
+              <thead>
+                <tr>
+                  <th scope="col" class="col-idx">{{ t('netlifyAccountsList.colRow') }}</th>
+                  <th scope="col">{{ t('netlifyAccountsList.colTitle') }}</th>
+                  <th scope="col">{{ t('netlifyAccountsList.colEmail') }}</th>
+                  <th scope="col">{{ t('netlifyAccountsList.colNetlifyCreated') }}</th>
+                  <th scope="col">{{ t('netlifyAccountsList.colLastLogin') }}</th>
+                  <th scope="col" class="col-actions">{{ t('netlifyAccountsList.colActions') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="!loading && total === 0" class="empty-row">
+                  <td colspan="6">
+                    <div class="empty-inner">
+                      <n-alert type="info" :show-icon="true" class="empty-alert">
+                        {{ t('netlifyAccountsList.emptyHint') }}
+                      </n-alert>
+                      <n-button type="primary" @click="goRegister">
+                        {{ t('netlifyAccountsList.emptyCta') }}
+                      </n-button>
+                    </div>
+                  </td>
+                </tr>
+                <tr v-for="(row, index) in accounts" :key="row.id">
+                  <td class="col-idx tabular-nums">
+                    {{ (page - 1) * pageSize + index + 1 }}
+                  </td>
+                  <td>{{ row.label?.trim() ? row.label : '—' }}</td>
+                  <td>{{ row.email ?? '—' }}</td>
+                  <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyCreatedAt) }}</td>
+                  <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyLastLogin) }}</td>
+                  <td class="col-actions">
+                    <n-space :size="4" justify="end" :wrap="false">
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <n-button
+                            quaternary
+                            circle
+                            size="small"
+                            type="info"
+                            :render-icon="renderIcon(EyeOutline)"
+                            :focusable="false"
+                            @click="goDetail(row.id)"
+                          />
+                        </template>
+                        {{ t('netlifyAccountsList.actionView') }}
+                      </n-tooltip>
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <n-button
+                            quaternary
+                            circle
+                            size="small"
+                            type="primary"
+                            :render-icon="renderIcon(CreateOutline)"
+                            :focusable="false"
+                            @click="goEdit(row.id)"
+                          />
+                        </template>
+                        {{ t('netlifyAccountsList.actionEdit') }}
+                      </n-tooltip>
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <n-button
+                            quaternary
+                            circle
+                            size="small"
+                            type="error"
+                            :render-icon="renderIcon(TrashOutline)"
+                            :focusable="false"
+                            :disabled="deletingId === row.id"
+                            @click="openDeleteModal(row)"
+                          />
+                        </template>
+                        {{ t('netlifyAccountsList.actionDelete') }}
+                      </n-tooltip>
+                      <n-tooltip trigger="hover">
+                        <template #trigger>
+                          <n-button
+                            quaternary
+                            circle
+                            size="small"
+                            :type="row.enabled ? 'success' : 'warning'"
+                            :loading="togglingId === row.id"
+                            :render-icon="
+                              row.enabled
+                                ? renderIcon(PauseCircleOutline)
+                                : renderIcon(PlayCircleOutline)
+                            "
+                            :focusable="false"
+                            @click="toggleEnabled(row)"
+                          />
+                        </template>
+                        {{
+                          row.enabled
+                            ? t('netlifyAccountsList.actionDisable')
+                            : t('netlifyAccountsList.actionEnable')
+                        }}
+                      </n-tooltip>
+                    </n-space>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </n-card>
+
+        <n-card
+          v-if="total > pageSize"
+          size="small"
+          :bordered="true"
+          class="pagination-box"
+          content-style="padding: 12px 16px"
+        >
+          <div class="pagination-inner">
+            <n-pagination
+              :page="page"
+              :page-size="pageSize"
+              :item-count="total"
+              :page-slot="7"
+              :disabled="loading"
+              @update:page="onPageChange"
+            />
+          </div>
+        </n-card>
+      </n-space>
     </n-spin>
   </n-space>
 
@@ -334,5 +380,13 @@ function renderIcon(icon: typeof EyeOutline) {
 }
 .delete-confirm-alert__body {
   line-height: 1.55;
+}
+.pagination-box {
+  width: 100%;
+}
+.pagination-inner {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 </style>
