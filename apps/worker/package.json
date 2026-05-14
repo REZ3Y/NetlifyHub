@@ -10,6 +10,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@netlifyhub/netlify-client": "workspace:*",
     "bullmq": "^5.34.10",
     "dotenv": "^16.4.7",
     "ioredis": "^5.4.2",

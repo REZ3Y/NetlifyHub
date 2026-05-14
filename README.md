@@ -16,18 +16,21 @@ NetlifyHub is a production-oriented web control plane for operating many Netlify
 
 ## Architecture
 
-| Package              | Role                                      |
-| -------------------- | ----------------------------------------- |
-| `@netlifyhub/api`    | HTTP API (`/v1`), auth, health            |
-| `@netlifyhub/web`    | SPA dashboard                             |
-| `@netlifyhub/worker` | BullMQ consumer (placeholder jobs)        |
-| `@netlifyhub/shared` | Shared constants (API prefix, rate hints) |
+| Package                      | Role                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `@netlifyhub/api`            | HTTP API (`/v1`), auth, health                                           |
+| `@netlifyhub/web`            | SPA dashboard                                                            |
+| `@netlifyhub/worker`         | BullMQ consumer (placeholder jobs)                                       |
+| `@netlifyhub/netlify-client` | Netlify REST client (sites, deploys, accounts, user; retries on 429/503) |
+| `@netlifyhub/shared`         | Shared constants (API prefix, rate hints)                                |
 
 The dashboard talks to the API over `/v1`. In local development the Vite dev server proxies `/v1` to the API. In Docker, the **same Fastify process** serves the built SPA from `STATIC_WEB_ROOT` (see `docker-compose.yml`) so the browser uses **one origin** (for example `http://localhost:3000`) for both UI and `/v1` — no separate reverse proxy or `VITE_API_BASE` for the default Compose stack.
 
+Use **`@netlifyhub/netlify-client`** (or `apps/api/src/integrations/netlify`) for outbound calls to Netlify; pass a **PAT / OAuth access token** per account (from your vault in later phases — never log the token).
+
 ## Netlify API notes
 
-Per [Netlify API documentation](https://docs.netlify.com/api-and-cli-guides/api-guides/get-started-with-api/#rate-limiting), most endpoints are limited to **500 requests per minute** with stricter limits for certain operations (for example deploys). Later phases will add a dedicated Netlify client with per-account queues, caching, and exponential backoff; the shared package already exposes `NETLIFY_DEFAULT_RATE_LIMIT_RPM = 500` as a reference constant.
+Per [Netlify API documentation](https://docs.netlify.com/api-and-cli-guides/api-guides/get-started-with-api/#rate-limiting), most endpoints are limited to **500 requests per minute** with stricter limits for certain operations (for example deploys). The **`@netlifyhub/netlify-client`** package retries on **429** / **503** with backoff and honors **`Retry-After`** when present; future phases will add per-account queues and caching on top. The shared package exposes `NETLIFY_DEFAULT_RATE_LIMIT_RPM = 500` as a reference constant.
 
 ## Requirements
 
@@ -122,7 +125,7 @@ See `apps/api/.env.example`, `apps/worker/.env.example`, and `apps/web/.env.exam
 ## Roadmap (high level)
 
 1. **Phase 1 (current):** Monorepo, auth, UX shell, Docker, worker skeleton.
-2. **Phase 2:** Netlify API client module, per-account token vault (encryption), proxy configuration surface.
+2. **Phase 2:** Extend `@netlifyhub/netlify-client` usage, per-account token vault (encryption), proxy configuration surface.
 3. **Phase 3:** Sync jobs + BullMQ processors, cached read models in PostgreSQL, adaptive scheduling respecting Netlify rate limits.
 4. **Phase 4:** Deploy / delete / monitoring flows, RBAC, audit log UI.
 

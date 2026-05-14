@@ -50,6 +50,9 @@ importers:
       '@fastify/static':
         specifier: ^8.0.0
         version: 8.3.0
+      '@netlifyhub/netlify-client':
+        specifier: workspace:*
+        version: link:../../packages/netlify-client
       '@netlifyhub/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -139,6 +142,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@netlifyhub/netlify-client':
+        specifier: workspace:*
+        version: link:../../packages/netlify-client
       bullmq:
         specifier: ^5.34.10
         version: 5.76.8
@@ -163,6 +169,16 @@ importers:
         version: 4.21.0
       typescript:
         specifier: ^5.7.2
+        version: 5.7.3
+
+  packages/netlify-client:
+    dependencies:
+      '@netlifyhub/shared':
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      typescript:
+        specifier: ~5.7.2
         version: 5.7.3
 
   packages/shared:
