@@ -12,9 +12,11 @@ COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY packages/shared/package.json packages/shared/
+COPY packages/netlify-client/package.json packages/netlify-client/
 RUN pnpm install
 COPY . .
 RUN pnpm --filter @netlifyhub/shared build
+RUN pnpm --filter @netlifyhub/netlify-client build
 RUN pnpm --filter @netlifyhub/api exec prisma generate
 RUN pnpm --filter @netlifyhub/api build
 RUN NODE_ENV=production pnpm --filter @netlifyhub/web build

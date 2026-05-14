@@ -8,10 +8,13 @@ COPY package.json pnpm-workspace.yaml ./
 COPY pnpm-lock.yaml* ./
 COPY apps/worker/package.json apps/worker/
 COPY packages/shared/package.json packages/shared/
+COPY packages/netlify-client/package.json packages/netlify-client/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 RUN pnpm install
 COPY . .
+RUN pnpm --filter @netlifyhub/shared build
+RUN pnpm --filter @netlifyhub/netlify-client build
 RUN pnpm --filter @netlifyhub/worker build
 
 FROM base AS runner
