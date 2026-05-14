@@ -5,6 +5,8 @@ build
 .env
 .env.local
 .env.*.local
+# Personal overrides for local Docker (copy from docker-compose.local.example.yml)
+docker-compose.local.yml
 *.log
 .DS_Store
 coverage

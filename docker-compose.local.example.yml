@@ -1,0 +1,54 @@
+# Local development: Postgres + Redis + Worker only (API and web run on the host).
+#
+# Start (from repo root):
+#   pnpm run docker:local
+# or:
+#   docker compose -f docker-compose.local.example.yml up -d
+#
+# Optional: copy to docker-compose.local.yml (gitignored) to change ports or env without
+# committing; then run: docker compose -f docker-compose.local.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: netlifyhub
+      POSTGRES_PASSWORD: netlifyhub
+      POSTGRES_DB: netlifyhub
+    ports:
+      - '5432:5432'
+    volumes:
+      - netlifyhub_pg_local:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U netlifyhub -d netlifyhub']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  netlifyhub_pg_local:
