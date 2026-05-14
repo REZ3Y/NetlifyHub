@@ -1,0 +1,36 @@
+{
+  "name": "netlifyhub",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.14.2",
+  "description": "Production-grade multi-account Netlify management panel",
+  "scripts": {
+    "dev": "concurrently -n api,web,worker -c blue,green,magenta \"pnpm --filter @netlifyhub/api dev\" \"pnpm --filter @netlifyhub/web dev\" \"pnpm --filter @netlifyhub/worker dev\"",
+    "build": "pnpm -r run build",
+    "lint": "pnpm -r run lint",
+    "format": "prettier -w \"**/*.{ts,tsx,vue,json,md}\"",
+    "format:check": "prettier -c \"**/*.{ts,tsx,vue,json,md}\"",
+    "prepare": "husky",
+    "db:generate": "pnpm --filter @netlifyhub/api exec prisma generate",
+    "db:migrate": "pnpm --filter @netlifyhub/api exec prisma migrate deploy",
+    "db:studio": "pnpm --filter @netlifyhub/api exec prisma studio"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,vue}": [
+      "eslint --fix"
+    ],
+    "*.{ts,tsx,vue,json,md}": [
+      "prettier -w"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.15.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.16.0"
+  }
+}
