@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
-import { ArrowBackOutline } from '@vicons/ionicons5';
+import { ArrowBackOutline, RefreshOutline } from '@vicons/ionicons5';
 import { useMessage } from 'naive-ui';
 import { isAxiosError } from 'axios';
 import { http } from '@/api/http';
@@ -35,15 +35,18 @@ function formatNetlifyInstant(value: string | null): string {
   return value;
 }
 
-async function loadSites(id: string, enabled: boolean) {
-  sites.value = [];
-  sitesTeamName.value = '';
+async function loadSites(id: string, enabled: boolean, options?: { refresh?: boolean }) {
+  if (options?.refresh) {
+    sites.value = [];
+    sitesTeamName.value = '';
+  }
   sitesError.value = false;
   if (!enabled) return;
   sitesLoading.value = true;
   try {
     const { data } = await http.get<{ teamName: string; sites: NetlifyLinkedSite[] }>(
-      `/v1/netlify-accounts/${id}/sites`
+      `/v1/netlify-accounts/${id}/sites`,
+      { params: options?.refresh ? { refresh: 'true' } : undefined }
     );
     sites.value = data.sites;
     sitesTeamName.value = data.teamName;
@@ -169,6 +172,11 @@ function goList() {
 function goEdit() {
   if (!account.value) return;
   void router.push({ name: 'netlifyAccountEdit', params: { id: account.value.id } });
+}
+
+function refreshSites() {
+  if (!account.value?.enabled) return;
+  void loadSites(account.value.id, true, { refresh: true });
 }
 
 const billingPeriodText = computed(() => {
@@ -310,7 +318,24 @@ const billingPeriodText = computed(() => {
                 </n-card>
               </template>
               <template v-else-if="sitesError">
-                <n-card class="sites-card" :title="t('netlifyAccountDetail.sitesTitle')">
+                <n-card class="sites-card" :segmented="{ content: true }">
+                  <template #header>
+                    <div class="sites-card__header sites-card__header--error">
+                      <n-h2 style="margin: 0">{{ t('netlifyAccountDetail.sitesTitle') }}</n-h2>
+                      <n-button
+                        quaternary
+                        circle
+                        size="small"
+                        :loading="sitesLoading"
+                        :title="t('netlifyAccountDetail.sitesRefresh')"
+                        @click="refreshSites"
+                      >
+                        <template #icon>
+                          <n-icon :component="RefreshOutline" />
+                        </template>
+                      </n-button>
+                    </div>
+                  </template>
                   <n-text depth="3">{{ t('netlifyAccountDetail.sitesLoadError') }}</n-text>
                 </n-card>
               </template>
@@ -320,6 +345,7 @@ const billingPeriodText = computed(() => {
                 :sites="sites"
                 :team-name="sitesTeamName"
                 :loading="sitesLoading"
+                @refresh="refreshSites"
               />
             </section>
           </div>
@@ -456,5 +482,13 @@ const billingPeriodText = computed(() => {
   width: 38%;
   vertical-align: top;
   white-space: normal;
+}
+
+.sites-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 </style>

@@ -6,6 +6,7 @@ import {
   ConstructOutline,
   CopyOutline,
   OpenOutline,
+  RefreshOutline,
   SettingsOutline,
 } from '@vicons/ionicons5';
 import { useMessage } from 'naive-ui';
@@ -25,6 +26,10 @@ const props = defineProps<{
   sites: NetlifyLinkedSite[];
   teamName: string;
   loading?: boolean;
+}>();
+
+const emit = defineEmits<{
+  refresh: [];
 }>();
 
 const { t, locale } = useI18n();
@@ -156,12 +161,31 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
   draftNote.value = '';
   await savePanelNote(site);
 }
+
+function onRefresh() {
+  brokenThumbs.value = new Set();
+  emit('refresh');
+}
 </script>
 
 <template>
   <n-card class="sites-card" :segmented="{ content: true }">
     <template #header>
-      <n-h2 style="margin: 0">{{ t('netlifyAccountDetail.sitesTitle') }}</n-h2>
+      <div class="sites-card__header">
+        <n-h2 style="margin: 0">{{ t('netlifyAccountDetail.sitesTitle') }}</n-h2>
+        <n-button
+          quaternary
+          circle
+          size="small"
+          :loading="loading"
+          :title="t('netlifyAccountDetail.sitesRefresh')"
+          @click="onRefresh"
+        >
+          <template #icon>
+            <n-icon :component="RefreshOutline" />
+          </template>
+        </n-button>
+      </div>
     </template>
 
     <n-spin :show="loading">
@@ -337,6 +361,14 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
 
 .sites-card :deep(.n-card-header) {
   padding-bottom: 12px;
+}
+
+.sites-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
 }
 
 .sites-list {

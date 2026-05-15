@@ -88,6 +88,13 @@ const listQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(50),
 });
 
+const sitesQuery = z.object({
+  refresh: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+});
+
 const patchBody = z
   .object({
     title: z.string().max(128).nullable().optional(),
@@ -518,7 +525,18 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
     }
 
-    const result = await fetchLinkedNetlifyAccountSites(app.config, user.id, p.data.id);
+    const q = sitesQuery.safeParse(request.query);
+    if (!q.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid query',
+        details: q.error.flatten(),
+      });
+    }
+
+    const result = await fetchLinkedNetlifyAccountSites(app.config, user.id, p.data.id, {
+      refresh: q.data.refresh,
+    });
     if (!result.ok) {
       return reply.code(result.status).send({
         error: result.error,

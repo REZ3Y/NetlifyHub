@@ -110,6 +110,7 @@ export const messages = {
       usageDisabled: 'Enable this account in the panel to load live usage.',
       usageOtherTeams: 'This token also has access to: {teams}. Showing the first team only.',
       sitesTitle: 'Sites',
+      sitesRefresh: 'Refresh sites from Netlify',
       sitesEmpty: 'No sites found for this team.',
       sitesLoadError: 'Could not load sites from Netlify',
       sitesDisabled: 'Enable this account in the panel to load sites.',
@@ -427,6 +428,7 @@ export const messages = {
       usageOtherTeams:
         'این توکن به تیم‌های دیگر هم دسترسی دارد: {teams}. فقط اولین تیم نمایش داده می‌شود.',
       sitesTitle: 'سایت‌ها',
+      sitesRefresh: 'بارگذاری مجدد سایت‌ها از نتلیفای',
       sitesEmpty: 'سایتی برای این تیم یافت نشد.',
       sitesLoadError: 'بارگذاری سایت‌ها از نتلیفای ناموفق بود',
       sitesDisabled: 'برای نمایش سایت‌ها، این اکانت را در پنل فعال کنید.',

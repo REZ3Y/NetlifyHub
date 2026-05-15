@@ -188,12 +188,17 @@ async function listAllSitesForTeam(
 export async function fetchLinkedNetlifyAccountSites(
   env: Env,
   userId: string,
-  linkedAccountId: string
+  linkedAccountId: string,
+  options?: { refresh?: boolean }
 ): Promise<
   | { ok: true; teamName: string; sites: NetlifyLinkedSiteDto[] }
   | { ok: false; error: string; message: string; status: number }
 > {
   const cacheKey = sitesCacheKey(userId, linkedAccountId);
+  if (options?.refresh) {
+    sitesCache.delete(cacheKey);
+  }
+
   const cached = sitesCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     const sites = await attachPanelNotesToSites(linkedAccountId, cached.sites);
