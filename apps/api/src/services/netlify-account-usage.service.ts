@@ -4,6 +4,25 @@ import type { Env } from '../config/env.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 const GIB = 1024 ** 3;
+const USAGE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type UsageCacheEntry = {
+  usage: NetlifyAccountUsageDto;
+  expiresAt: number;
+};
+
+const usageCache = new Map<string, UsageCacheEntry>();
+
+function usageCacheKey(userId: string, linkedAccountId: string): string {
+  return `${userId}:${linkedAccountId}`;
+}
+
+export function invalidateLinkedNetlifyAccountUsageCache(
+  userId: string,
+  linkedAccountId: string
+): void {
+  usageCache.delete(usageCacheKey(userId, linkedAccountId));
+}
 
 export type NetlifyAccountUsageDto = {
   teamName: string;
@@ -78,6 +97,12 @@ export async function fetchLinkedNetlifyAccountUsage(
   | { ok: true; usage: NetlifyAccountUsageDto }
   | { ok: false; error: string; message: string; status: number }
 > {
+  const cacheKey = usageCacheKey(userId, linkedAccountId);
+  const cached = usageCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ok: true, usage: cached.usage };
+  }
+
   const clientResult = await createNetlifyClientForLinkedAccount(env, userId, linkedAccountId);
   if (!clientResult.ok) return clientResult;
 
@@ -219,6 +244,11 @@ export async function fetchLinkedNetlifyAccountUsage(
       slug: t.slug ?? '',
     })),
   };
+
+  usageCache.set(cacheKey, {
+    usage,
+    expiresAt: Date.now() + USAGE_CACHE_TTL_MS,
+  });
 
   return { ok: true, usage };
 }

@@ -148,13 +148,6 @@ const billingPeriodText = computed(() => {
   const end = formatDateTime(period.end, { dateStyle: 'medium', timeStyle: undefined });
   return t('netlifyAccountDetail.usageBillingPeriod', { start, end });
 });
-
-const otherTeamsHint = computed(() => {
-  const teams = usage.value?.otherTeams ?? [];
-  if (!teams.length) return null;
-  const names = teams.map((x) => x.name).join(', ');
-  return t('netlifyAccountDetail.usageOtherTeams', { teams: names });
-});
 </script>
 
 <template>
@@ -171,31 +164,34 @@ const otherTeamsHint = computed(() => {
     <n-spin :show="loading">
       <template v-if="account">
         <section class="account-detail-page__section account-detail-page__usage">
-          <n-card
-            class="usage-card"
-            :title="t('netlifyAccountDetail.usageTitle')"
-            :segmented="{ content: true }"
-          >
+          <n-card class="usage-card" :segmented="{ content: true }">
+            <template #header>
+              <div class="usage-card__header">
+                <div class="usage-card__header-main">
+                  <n-space align="center" :size="8" :wrap="false">
+                    <n-text strong class="usage-card__title">
+                      {{ t('netlifyAccountDetail.usageTitle') }}
+                    </n-text>
+                    <n-tag v-if="usage?.planName" type="success" size="small" round>
+                      {{ usage.planName }}
+                    </n-tag>
+                  </n-space>
+                  <n-text v-if="usage" depth="3" class="usage-card__subtitle">
+                    {{ t('netlifyAccountDetail.usageSubtitle', { team: usage.teamSlug }) }}
+                  </n-text>
+                </div>
+                <n-text v-if="billingPeriodText" depth="3" class="usage-card__period">
+                  {{ billingPeriodText }}
+                </n-text>
+              </div>
+            </template>
+
             <template v-if="!account.enabled">
               <n-text depth="3">{{ t('netlifyAccountDetail.usageDisabled') }}</n-text>
             </template>
             <template v-else>
               <n-spin :show="usageLoading">
                 <template v-if="usage">
-                  <n-space vertical :size="12" class="usage-card__meta">
-                    <n-space align="center" wrap :size="8">
-                      <n-text strong>{{ usage.teamName }}</n-text>
-                      <n-tag v-if="usage.planName" type="success" size="small" round>
-                        {{ usage.planName }}
-                      </n-tag>
-                    </n-space>
-                    <n-text depth="3">
-                      {{ t('netlifyAccountDetail.usageSubtitle', { team: usage.teamSlug }) }}
-                    </n-text>
-                    <n-text v-if="billingPeriodText" depth="3">{{ billingPeriodText }}</n-text>
-                    <n-text v-if="otherTeamsHint" depth="3">{{ otherTeamsHint }}</n-text>
-                  </n-space>
-
                   <div class="usage-metrics">
                     <n-card size="small" embedded class="usage-metrics__item">
                       <n-statistic :label="t('netlifyAccountDetail.usageBandwidth')">
@@ -236,15 +232,19 @@ const otherTeamsHint = computed(() => {
         </section>
 
         <section class="account-detail-page__section account-detail-page__details">
-          <div class="head-actions">
-            <div>
-              <n-h2 style="margin-bottom: 4px">{{ t('netlifyAccountDetail.title') }}</n-h2>
-              <n-p depth="3" style="margin: 0">{{ t('netlifyAccountDetail.subtitle') }}</n-p>
-            </div>
-            <n-button type="primary" @click="goEdit">{{ t('netlifyAccountDetail.edit') }}</n-button>
-          </div>
+          <n-card class="details-card" :segmented="{ content: true }">
+            <template #header>
+              <div class="details-card__header">
+                <div class="details-card__header-text">
+                  <n-h2 style="margin: 0 0 4px">{{ t('netlifyAccountDetail.title') }}</n-h2>
+                  <n-p depth="3" style="margin: 0">{{ t('netlifyAccountDetail.subtitle') }}</n-p>
+                </div>
+                <n-button type="primary" @click="goEdit">
+                  {{ t('netlifyAccountDetail.edit') }}
+                </n-button>
+              </div>
+            </template>
 
-          <n-card :segmented="{ content: true }">
             <n-table bordered :single-line="false" size="small" class="detail-table">
               <thead>
                 <tr>
@@ -286,15 +286,43 @@ const otherTeamsHint = computed(() => {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 
 .usage-card {
   width: 100%;
 }
 
-.usage-card__meta {
-  margin-bottom: 20px;
+.usage-card :deep(.n-card-header) {
+  padding-bottom: 12px;
+}
+
+.usage-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.usage-card__header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.usage-card__title {
+  font-size: 1.125rem;
+}
+
+.usage-card__subtitle {
+  margin: 0;
+}
+
+.usage-card__period {
+  flex-shrink: 0;
+  text-align: end;
+  max-width: 50%;
 }
 
 .usage-metrics {
@@ -320,12 +348,24 @@ const otherTeamsHint = computed(() => {
   max-width: 720px;
 }
 
-.head-actions {
+.details-card {
+  width: 100%;
+}
+
+.details-card :deep(.n-card-header) {
+  padding-bottom: 12px;
+}
+
+.details-card__header {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  width: 100%;
+}
+
+.details-card__header-text {
+  min-width: 0;
 }
 
 .detail-table {
