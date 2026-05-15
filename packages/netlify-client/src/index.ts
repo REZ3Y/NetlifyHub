@@ -19,6 +19,7 @@ export type {
   NetlifyAccountBuildStatus,
   NetlifyAccountBuildStatusMinutes,
   NetlifyBuild,
+  NetlifyBuildHook,
   NetlifyCapabilityQuota,
   NetlifyDeploy,
   NetlifyEnvVar,

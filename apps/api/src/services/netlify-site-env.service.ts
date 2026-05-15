@@ -1,7 +1,9 @@
-import type { NetlifyEnvVar } from '@netlifyhub/netlify-client';
+import type { CreateEnvVarInput, NetlifyEnvVar } from '@netlifyhub/netlify-client';
+import type { EnvVarContext } from '@netlifyhub/netlify-client';
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import type { NetlifyClient } from '../integrations/netlify/index.js';
 import type { Env } from '../config/env.js';
+import { createNetlifyFetchForUser } from '../lib/netlify-proxied-fetch.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 export type SiteEnvVarDto = {
@@ -12,7 +14,6 @@ export type SiteEnvVarDto = {
     id: string | null;
     context: string;
     contextParameter: string | null;
-    /** Empty when `isSecret` and value is not exposed by Netlify. */
     value: string;
     hasValue: boolean;
   }>;
@@ -49,19 +50,145 @@ function mapEnvVar(raw: NetlifyEnvVar): SiteEnvVarDto {
 
 async function resolveAccountIdForSite(client: NetlifyClient, siteId: string): Promise<string> {
   const site = await client.sites.get(siteId);
-  const accountId =
-    (typeof site.account_id === 'string' && site.account_id.trim()) ||
-    (typeof site.account_slug === 'string' && site.account_slug.trim());
-  if (accountId) return accountId;
-
   const teams = await client.accounts.list();
-  const first = teams.data?.[0];
+  const list = teams.data ?? [];
+
+  const slug = (typeof site.account_slug === 'string' && site.account_slug.trim()) || undefined;
+  const id = (typeof site.account_id === 'string' && site.account_id.trim()) || undefined;
+
+  for (const team of list) {
+    const teamId = typeof team.id === 'string' ? team.id : undefined;
+    const teamSlug = typeof team.slug === 'string' ? team.slug : undefined;
+    if (slug && (teamSlug === slug || teamId === slug)) return teamId ?? teamSlug ?? slug;
+    if (id && (teamId === id || teamSlug === id)) return teamId ?? teamSlug ?? id;
+  }
+
+  if (id) return id;
+  if (slug) return slug;
+
+  const first = list[0];
   const fallback =
     (typeof first?.id === 'string' && first.id) || (typeof first?.slug === 'string' && first.slug);
   if (!fallback) {
     throw new Error('Could not resolve Netlify account id for this site.');
   }
   return fallback;
+}
+
+function pickProductionBranch(site: Record<string, unknown>): string | undefined {
+  const bs = site.build_settings;
+  if (bs && typeof bs === 'object' && !Array.isArray(bs)) {
+    const repo = (bs as Record<string, unknown>).repo;
+    if (repo && typeof repo === 'object' && !Array.isArray(repo)) {
+      const branch = (repo as Record<string, unknown>).default_branch;
+      if (typeof branch === 'string' && branch.trim()) return branch.trim();
+    }
+  }
+  const deploy = site.published_deploy;
+  if (deploy && typeof deploy === 'object' && !Array.isArray(deploy)) {
+    const branch = (deploy as Record<string, unknown>).branch;
+    if (typeof branch === 'string' && branch.trim()) return branch.trim();
+  }
+  return undefined;
+}
+
+function mergeEnvValues(
+  existing: NetlifyEnvVar,
+  context: EnvVarContext,
+  newValue: string
+): Array<{ value: string; context: EnvVarContext; context_parameter?: string }> {
+  const values = [...(existing.values ?? [])];
+  const idx = values.findIndex((v) => (v.context ?? 'all') === context);
+  const entry = { value: newValue, context };
+  if (idx >= 0) {
+    values[idx] = { ...values[idx], ...entry };
+  } else {
+    values.push(entry);
+  }
+  return values.map((v) => ({
+    value: typeof v.value === 'string' ? v.value : '',
+    context: (v.context ?? 'all') as EnvVarContext,
+    ...(typeof v.context_parameter === 'string' && v.context_parameter
+      ? { context_parameter: v.context_parameter }
+      : {}),
+  }));
+}
+
+async function triggerBuildHookUrl(
+  fetchImpl: typeof fetch,
+  hookUrl: string,
+  opts?: { branch?: string; title?: string }
+): Promise<void> {
+  const url = new URL(hookUrl);
+  if (opts?.branch) url.searchParams.set('trigger_branch', opts.branch);
+  if (opts?.title) url.searchParams.set('trigger_title', opts.title);
+  const res = await fetchImpl(url.toString(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: '{}',
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new NetlifyApiError(
+      text || `Build hook request failed (${res.status})`,
+      res.status,
+      text
+    );
+  }
+}
+
+async function triggerProductionRedeploy(
+  env: Env,
+  userId: string,
+  client: NetlifyClient,
+  siteId: string
+): Promise<{ triggered: boolean; buildId: string | null; error: string | null }> {
+  const site = await client.sites.get(siteId);
+  const branch = pickProductionBranch(site as Record<string, unknown>);
+  const title = 'Env variables updated via NetlifyHub';
+
+  try {
+    const build = await client.builds.triggerForSite(siteId, { branch, title });
+    return {
+      triggered: true,
+      buildId: typeof build.id === 'string' ? build.id : null,
+      error: null,
+    };
+  } catch (buildErr) {
+    const buildStatus = buildErr instanceof NetlifyApiError ? buildErr.status : 0;
+    if (buildStatus !== 404 && buildStatus !== 422 && buildStatus !== 400) {
+      const msg = buildErr instanceof Error ? buildErr.message : 'Could not trigger build.';
+      return { triggered: false, buildId: null, error: msg };
+    }
+  }
+
+  try {
+    const fetchImpl = await createNetlifyFetchForUser(env, userId);
+    let hooks = await client.buildHooks.listForSite(siteId);
+
+    if (!hooks.length) {
+      const created = await client.buildHooks.create(siteId, {
+        title: 'NetlifyHub auto deploy',
+        branch: branch ?? 'main',
+      });
+      hooks = created.url ? [created] : await client.buildHooks.listForSite(siteId);
+    }
+
+    const hook =
+      hooks.find((h) => h.branch === branch) ??
+      hooks.find((h) => !h.branch || h.branch === 'main') ??
+      hooks[0];
+
+    if (!hook?.url) {
+      return { triggered: false, buildId: null, error: 'No build hook available for this site.' };
+    }
+
+    await triggerBuildHookUrl(fetchImpl, hook.url, { branch, title });
+    return { triggered: true, buildId: hook.id ?? null, error: null };
+  } catch (hookErr) {
+    const msg = hookErr instanceof Error ? hookErr.message : 'Could not trigger build hook.';
+    return { triggered: false, buildId: null, error: msg };
+  }
 }
 
 function netlifyError(e: unknown): { error: string; message: string; status: number } {
@@ -104,7 +231,6 @@ export type SaveSiteEnvInput = {
   value: string;
   context?: 'all' | 'production' | 'deploy-preview' | 'branch-deploy' | 'dev';
   isSecret?: boolean;
-  /** When true, schedule `POST /sites/{id}/builds` after a successful save. */
   triggerRedeploy?: boolean;
 };
 
@@ -122,7 +248,7 @@ export async function saveLinkedNetlifySiteEnvVar(
   if (!clientResult.ok) return clientResult;
 
   const client = clientResult.client;
-  const context = input.context ?? 'all';
+  const context = (input.context ?? 'all') as EnvVarContext;
   const key = input.key.trim();
   if (!key) {
     return { ok: false, error: 'VALIDATION_ERROR', message: 'Key is required.', status: 400 };
@@ -134,9 +260,19 @@ export async function saveLinkedNetlifySiteEnvVar(
     const found = existing.find((v) => v.key === key);
 
     if (found) {
-      await client.envVars.setValueForSite(accountId, siteId, key, {
-        value: input.value,
-        context,
+      if (found.is_secret && !input.value.trim()) {
+        return {
+          ok: false,
+          error: 'VALIDATION_ERROR',
+          message: 'Secret variables require a new value when editing.',
+          status: 400,
+        };
+      }
+      const merged = mergeEnvValues(found, context, input.value);
+      await client.envVars.updateForSite(accountId, siteId, key, {
+        values: merged,
+        is_secret: found.is_secret,
+        scopes: found.scopes as CreateEnvVarInput['scopes'],
       });
     } else {
       await client.envVars.createForSite(accountId, siteId, [
@@ -157,19 +293,47 @@ export async function saveLinkedNetlifySiteEnvVar(
     };
 
     if (input.triggerRedeploy !== false) {
-      try {
-        const build = await client.builds.triggerForSite(siteId, {
-          title: 'Env variables updated via NetlifyHub',
-        });
-        redeploy = {
-          triggered: true,
-          buildId: typeof build.id === 'string' ? build.id : null,
-          error: null,
-        };
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Could not trigger build.';
-        redeploy = { triggered: false, buildId: null, error: msg };
-      }
+      redeploy = await triggerProductionRedeploy(env, userId, client, siteId);
+    }
+
+    return { ok: true, result: { envVars, redeploy } };
+  } catch (e) {
+    return { ok: false, ...netlifyError(e) };
+  }
+}
+
+export async function deleteLinkedNetlifySiteEnvVar(
+  env: Env,
+  userId: string,
+  linkedAccountId: string,
+  siteId: string,
+  key: string,
+  options?: { triggerRedeploy?: boolean }
+): Promise<
+  | { ok: true; result: SiteEnvSaveResult }
+  | { ok: false; error: string; message: string; status: number }
+> {
+  const clientResult = await createNetlifyClientForLinkedAccount(env, userId, linkedAccountId);
+  if (!clientResult.ok) return clientResult;
+
+  const client = clientResult.client;
+  const trimmedKey = key.trim();
+  if (!trimmedKey) {
+    return { ok: false, error: 'VALIDATION_ERROR', message: 'Key is required.', status: 400 };
+  }
+
+  try {
+    const accountId = await resolveAccountIdForSite(client, siteId);
+    await client.envVars.deleteForSite(accountId, siteId, trimmedKey);
+    const envVars = (await client.envVars.listForSite(siteId)).map(mapEnvVar);
+
+    let redeploy: SiteEnvSaveResult['redeploy'] = {
+      triggered: false,
+      buildId: null,
+      error: null,
+    };
+    if (options?.triggerRedeploy !== false) {
+      redeploy = await triggerProductionRedeploy(env, userId, client, siteId);
     }
 
     return { ok: true, result: { envVars, redeploy } };

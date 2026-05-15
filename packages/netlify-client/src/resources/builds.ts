@@ -24,7 +24,6 @@ export class NetlifyBuildsResource {
           clear_cache: params?.clear_cache,
           title: params?.title,
         },
-        body: {},
       }
     );
     return data;

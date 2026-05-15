@@ -85,6 +85,15 @@ export class NetlifyEnvVarsResource {
     return data;
   }
 
+  /** `DELETE /accounts/{account_id}/env/{key}?site_id=…` */
+  async deleteForSite(accountId: string, siteId: string, key: string): Promise<void> {
+    await this.exec.requestJson<unknown>(
+      'DELETE',
+      `accounts/${encodeURIComponent(accountId)}/env/${encodeURIComponent(key)}`,
+      { query: { site_id: siteId } }
+    );
+  }
+
   /** `PUT /accounts/{account_id}/env/{key}?site_id=…` */
   async updateForSite(
     accountId: string,

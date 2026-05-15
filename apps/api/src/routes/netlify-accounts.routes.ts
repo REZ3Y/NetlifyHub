@@ -19,6 +19,7 @@ import {
   type ObservabilityRange,
 } from '../services/netlify-site-observability.service.js';
 import {
+  deleteLinkedNetlifySiteEnvVar,
   fetchLinkedNetlifySiteEnvVars,
   saveLinkedNetlifySiteEnvVar,
 } from '../services/netlify-site-env.service.js';
@@ -33,6 +34,19 @@ const idParams = z.object({ id: z.string().min(1) });
 const siteIdParams = z.object({
   id: z.string().min(1),
   siteId: z.string().min(1),
+});
+
+const envKeyParams = z.object({
+  id: z.string().min(1),
+  siteId: z.string().min(1),
+  envKey: z.string().min(1),
+});
+
+const deleteEnvQuery = z.object({
+  triggerRedeploy: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => (v === undefined ? true : v !== 'false')),
 });
 
 const observabilityQuery = z.object({
@@ -217,6 +231,46 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
       p.data.id,
       p.data.siteId,
       body.data
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return result.result;
+  });
+
+  app.delete('/:id/sites/:siteId/env/:envKey', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = envKeyParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const q = deleteEnvQuery.safeParse(request.query);
+    if (!q.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid query',
+        details: q.error.flatten(),
+      });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await deleteLinkedNetlifySiteEnvVar(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId,
+      decodeURIComponent(p.data.envKey),
+      { triggerRedeploy: q.data.triggerRedeploy }
     );
     if (!result.ok) {
       return reply.code(result.status).send({

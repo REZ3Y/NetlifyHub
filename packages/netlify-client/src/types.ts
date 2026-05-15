@@ -114,6 +114,15 @@ export type NetlifyEnvVar = {
   updated_at?: string;
 };
 
+export type NetlifyBuildHook = {
+  id?: string;
+  title?: string;
+  branch?: string;
+  url?: string;
+  site_id?: string;
+  created_at?: string;
+};
+
 export type NetlifyBuild = Record<string, unknown> & {
   id?: string;
   deploy_id?: string;

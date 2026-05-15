@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { SettingsOutline } from '@vicons/ionicons5';
+import { SettingsOutline, TrashOutline } from '@vicons/ionicons5';
+import { isAxiosError } from 'axios';
 import { useMessage } from 'naive-ui';
 import { http } from '@/api/http';
 import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
@@ -22,6 +23,7 @@ const message = useMessage();
 
 const loading = ref(false);
 const saving = ref(false);
+const deletingKey = ref<string | null>(null);
 const envVars = ref<SiteEnvVar[]>([]);
 const editingKey = ref<string | null>(null);
 
@@ -78,6 +80,12 @@ function displayValue(v: SiteEnvVar): string {
     .join(' · ');
 }
 
+const valuePlaceholder = computed(() =>
+  isEditing.value && envVars.value.find((e) => e.key === editingKey.value)?.isSecret
+    ? t('netlifyAccountDetail.envSecretEditPlaceholder')
+    : t('netlifyAccountDetail.envValuePlaceholder')
+);
+
 function startEdit(v: SiteEnvVar) {
   editingKey.value = v.key;
   formKey.value = v.key;
@@ -88,6 +96,29 @@ function startEdit(v: SiteEnvVar) {
       ? (primary.context as typeof formContext.value)
       : 'all';
   formSecret.value = v.isSecret;
+}
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
+    const msg = (err.response.data as { message?: string }).message;
+    if (msg) return msg;
+  }
+  return fallback;
+}
+
+function applySaveResult(data: SiteEnvSaveResult) {
+  envVars.value = data.envVars;
+  editingKey.value = null;
+  resetForm();
+  if (data.redeploy.triggered) {
+    message.success(t('netlifyAccountDetail.envSaveRedeployOk'));
+  } else if (data.redeploy.error) {
+    message.warning(
+      t('netlifyAccountDetail.envSaveRedeployFailed', { error: data.redeploy.error })
+    );
+  } else {
+    message.success(t('netlifyAccountDetail.envSaveOk'));
+  }
 }
 
 function cancelEdit() {
@@ -115,23 +146,36 @@ async function save() {
         triggerRedeploy: true,
       }
     );
-    envVars.value = data.envVars;
-    editingKey.value = null;
-    resetForm();
-
-    if (data.redeploy.triggered) {
-      message.success(t('netlifyAccountDetail.envSaveRedeployOk'));
-    } else if (data.redeploy.error) {
-      message.warning(
-        t('netlifyAccountDetail.envSaveRedeployFailed', { error: data.redeploy.error })
-      );
-    } else {
-      message.success(t('netlifyAccountDetail.envSaveOk'));
-    }
-  } catch {
-    message.error(t('netlifyAccountDetail.envSaveError'));
+    applySaveResult(data);
+  } catch (err) {
+    message.error(apiErrorMessage(err, t('netlifyAccountDetail.envSaveError')));
   } finally {
     saving.value = false;
+  }
+}
+
+async function remove(key: string) {
+  if (!props.site) return;
+  deletingKey.value = key;
+  try {
+    const { data } = await http.delete<SiteEnvSaveResult>(
+      `/v1/netlify-accounts/${props.linkedAccountId}/sites/${encodeURIComponent(props.site.id)}/env/${encodeURIComponent(key)}`
+    );
+    envVars.value = data.envVars;
+    if (editingKey.value === key) cancelEdit();
+    if (data.redeploy.triggered) {
+      message.success(t('netlifyAccountDetail.envDeleteRedeployOk'));
+    } else if (data.redeploy.error) {
+      message.warning(
+        t('netlifyAccountDetail.envDeleteRedeployFailed', { error: data.redeploy.error })
+      );
+    } else {
+      message.success(t('netlifyAccountDetail.envDeleteOk'));
+    }
+  } catch (err) {
+    message.error(apiErrorMessage(err, t('netlifyAccountDetail.envDeleteError')));
+  } finally {
+    deletingKey.value = null;
   }
 }
 
@@ -175,9 +219,31 @@ function close() {
                 <n-text strong class="env-list__key">{{ item.key }}</n-text>
                 <n-text depth="3" class="env-list__value">{{ displayValue(item) }}</n-text>
               </div>
-              <n-button size="tiny" quaternary @click="startEdit(item)">
-                {{ t('netlifyAccountDetail.envEdit') }}
-              </n-button>
+              <n-space :size="4">
+                <n-button size="tiny" quaternary @click="startEdit(item)">
+                  {{ t('netlifyAccountDetail.envEdit') }}
+                </n-button>
+                <n-popconfirm
+                  :positive-text="t('netlifyAccountDetail.envDeleteConfirm')"
+                  :negative-text="t('netlifyAccountDetail.envCancel')"
+                  @positive-click="remove(item.key)"
+                >
+                  <template #trigger>
+                    <n-button
+                      size="tiny"
+                      quaternary
+                      type="error"
+                      :loading="deletingKey === item.key"
+                      :title="t('netlifyAccountDetail.envDelete')"
+                    >
+                      <template #icon>
+                        <n-icon :component="TrashOutline" />
+                      </template>
+                    </n-button>
+                  </template>
+                  {{ t('netlifyAccountDetail.envDeleteBody', { key: item.key }) }}
+                </n-popconfirm>
+              </n-space>
             </li>
           </ul>
         </n-spin>
@@ -197,7 +263,7 @@ function close() {
               v-model:value="formValue"
               type="textarea"
               :autosize="{ minRows: 2, maxRows: 6 }"
-              :placeholder="t('netlifyAccountDetail.envValuePlaceholder')"
+              :placeholder="valuePlaceholder"
             />
           </n-form-item>
           <n-form-item :label="t('netlifyAccountDetail.envContext')">
