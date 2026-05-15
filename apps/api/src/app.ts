@@ -13,6 +13,7 @@ import { netlifyAccountsRoutes } from './routes/netlify-accounts.routes.js';
 import { deployArtifactsRoutes } from './routes/deploy-artifacts.routes.js';
 import { panelSettingsRoutes } from './routes/panel-settings.routes.js';
 import { telegramNotificationsRoutes } from './routes/telegram-notifications.routes.js';
+import { dashboardRoutes } from './routes/dashboard.routes.js';
 import { registerSpaStatic } from './plugins/spa-static.js';
 import { MAX_DEPLOY_ZIP_BYTES } from './lib/upload-storage.js';
 
@@ -63,6 +64,7 @@ export async function buildApp(env: Env) {
   await app.register(deployArtifactsRoutes, { prefix: '/v1/deploy-artifacts' });
   await app.register(panelSettingsRoutes, { prefix: '/v1/panel-settings' });
   await app.register(telegramNotificationsRoutes, { prefix: '/v1/telegram-notifications' });
+  await app.register(dashboardRoutes, { prefix: '/v1/dashboard' });
 
   if (env.STATIC_WEB_ROOT) {
     await registerSpaStatic(app, env.STATIC_WEB_ROOT);
