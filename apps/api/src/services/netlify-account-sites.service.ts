@@ -8,6 +8,7 @@ import type { NetlifyClient } from '../integrations/netlify/index.js';
 import { createNetlifyFetchForUser } from '../lib/netlify-proxied-fetch.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 import { SITE_THUMB_PLACEHOLDER_SVG } from '../lib/site-thumb-placeholder.js';
+import { attachPanelNotesToSites } from './netlify-linked-site-note.service.js';
 
 type SitesCacheEntry = {
   sites: NetlifyLinkedSiteDto[];
@@ -40,6 +41,8 @@ export type NetlifyLinkedSiteDto = {
   adminUrl: string | null;
   sslUrl: string | null;
   hasThumbnail: boolean;
+  /** User-defined note in this panel (not from Netlify). */
+  panelNote: string | null;
 };
 
 function stripProtocol(value: string): string {
@@ -133,6 +136,7 @@ function mapSite(site: NetlifySite, teamName: string): NetlifyLinkedSiteDto {
       typeof site.admin_url === 'string' && site.admin_url.trim() ? site.admin_url.trim() : null,
     sslUrl,
     hasThumbnail: !!pickScreenshotUrl(site),
+    panelNote: null,
   };
 }
 
@@ -192,7 +196,8 @@ export async function fetchLinkedNetlifyAccountSites(
   const cacheKey = sitesCacheKey(userId, linkedAccountId);
   const cached = sitesCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    return { ok: true, teamName: cached.teamName, sites: cached.sites };
+    const sites = await attachPanelNotesToSites(linkedAccountId, cached.sites);
+    return { ok: true, teamName: cached.teamName, sites };
   }
 
   const clientResult = await createNetlifyClientForLinkedAccount(env, userId, linkedAccountId);
@@ -241,7 +246,8 @@ export async function fetchLinkedNetlifyAccountSites(
       expiresAt: Date.now() + NETLIFY_LINKED_CACHE_TTL_MS,
     });
 
-    return { ok: true, teamName, sites };
+    const sitesWithNotes = await attachPanelNotesToSites(linkedAccountId, sites);
+    return { ok: true, teamName, sites: sitesWithNotes };
   } catch (e) {
     if (e instanceof NetlifyApiError) {
       return {

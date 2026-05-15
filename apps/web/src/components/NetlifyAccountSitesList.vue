@@ -9,6 +9,8 @@ import {
 } from '@vicons/ionicons5';
 import { useMessage } from 'naive-ui';
 import { useClipboard } from '@vueuse/core';
+import { isAxiosError } from 'axios';
+import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
 import NetlifyAccountSiteObservabilityModal from '@/components/NetlifyAccountSiteObservabilityModal.vue';
@@ -32,6 +34,10 @@ const brokenThumbs = ref<Set<string>>(new Set());
 const observabilityOpen = ref(false);
 const envOpen = ref(false);
 const selectedSite = ref<NetlifyLinkedSite | null>(null);
+const noteOverrides = ref<Record<string, string | null>>({});
+const draftNote = ref('');
+const savingNote = ref(false);
+const notePopoverOpenId = ref<string | null>(null);
 
 function thumbSrc(site: NetlifyLinkedSite): string {
   if (!site.hasThumbnail || brokenThumbs.value.has(site.id)) return PLACEHOLDER_THUMB;
@@ -89,6 +95,59 @@ function openEnv(site: NetlifyLinkedSite) {
   selectedSite.value = site;
   envOpen.value = true;
 }
+
+function panelNote(site: NetlifyLinkedSite): string | null {
+  if (Object.hasOwn(noteOverrides.value, site.id)) return noteOverrides.value[site.id];
+  return site.panelNote;
+}
+
+function hasPanelNote(site: NetlifyLinkedSite): boolean {
+  const n = panelNote(site);
+  return Boolean(n && n.trim());
+}
+
+function noteBadgeLabel(site: NetlifyLinkedSite): string {
+  const n = panelNote(site)?.trim();
+  if (!n) return t('netlifyAccountDetail.sitesNoteEmpty');
+  return n.length > 18 ? `${n.slice(0, 18)}…` : n;
+}
+
+function onNotePopoverShow(site: NetlifyLinkedSite, visible: boolean) {
+  if (visible) {
+    notePopoverOpenId.value = site.id;
+    draftNote.value = panelNote(site) ?? '';
+  } else if (notePopoverOpenId.value === site.id) {
+    notePopoverOpenId.value = null;
+  }
+}
+
+async function savePanelNote(site: NetlifyLinkedSite) {
+  savingNote.value = true;
+  const trimmed = draftNote.value.trim();
+  try {
+    const { data } = await http.put<{ panelNote: string | null }>(
+      `/v1/netlify-accounts/${props.linkedAccountId}/sites/${encodeURIComponent(site.id)}/note`,
+      { note: trimmed || null }
+    );
+    noteOverrides.value = { ...noteOverrides.value, [site.id]: data.panelNote };
+    notePopoverOpenId.value = null;
+    message.success(t('netlifyAccountDetail.sitesNoteSaved'));
+  } catch (err) {
+    const fallback = t('netlifyAccountDetail.sitesNoteSaveError');
+    const msg =
+      isAxiosError(err) && err.response?.data && typeof err.response.data === 'object'
+        ? ((err.response.data as { message?: string }).message ?? fallback)
+        : fallback;
+    message.error(msg);
+  } finally {
+    savingNote.value = false;
+  }
+}
+
+async function clearPanelNote(site: NetlifyLinkedSite) {
+  draftNote.value = '';
+  await savePanelNote(site);
+}
 </script>
 
 <template>
@@ -133,7 +192,53 @@ function openEnv(site: NetlifyLinkedSite) {
               {{ formatPublished(site) }}
             </n-text>
           </div>
-          <div class="sites-list__actions">
+          <div class="sites-list__lead-actions">
+            <n-popover
+              trigger="click"
+              placement="bottom-end"
+              :show="notePopoverOpenId === site.id"
+              @update:show="onNotePopoverShow(site, $event)"
+            >
+              <template #trigger>
+                <n-tag
+                  size="small"
+                  :bordered="true"
+                  class="sites-list__note-badge"
+                  :class="
+                    hasPanelNote(site)
+                      ? 'sites-list__note-badge--set'
+                      : 'sites-list__note-badge--empty'
+                  "
+                  :title="panelNote(site) ?? t('netlifyAccountDetail.sitesNotePopoverTitle')"
+                >
+                  {{ noteBadgeLabel(site) }}
+                </n-tag>
+              </template>
+              <div class="sites-list__note-popover">
+                <n-text strong style="display: block; margin-bottom: 8px">
+                  {{ t('netlifyAccountDetail.sitesNotePopoverTitle') }}
+                </n-text>
+                <n-input
+                  v-model:value="draftNote"
+                  type="textarea"
+                  :autosize="{ minRows: 2, maxRows: 5 }"
+                  :placeholder="t('netlifyAccountDetail.sitesNotePlaceholder')"
+                />
+                <n-space justify="end" :size="8" style="margin-top: 12px">
+                  <n-button size="small" :disabled="savingNote" @click="clearPanelNote(site)">
+                    {{ t('netlifyAccountDetail.sitesNoteClear') }}
+                  </n-button>
+                  <n-button
+                    size="small"
+                    type="primary"
+                    :loading="savingNote"
+                    @click="savePanelNote(site)"
+                  >
+                    {{ t('netlifyAccountDetail.sitesNoteSave') }}
+                  </n-button>
+                </n-space>
+              </div>
+            </n-popover>
             <n-button
               v-if="site.copyDomain || site.displayDomain"
               quaternary
@@ -146,6 +251,8 @@ function openEnv(site: NetlifyLinkedSite) {
                 <n-icon :component="CopyOutline" />
               </template>
             </n-button>
+          </div>
+          <div class="sites-list__actions">
             <n-button
               quaternary
               circle
@@ -266,6 +373,37 @@ function openEnv(site: NetlifyLinkedSite) {
 .sites-list__published {
   font-size: 0.8125rem;
   line-height: 1.35;
+}
+
+.sites-list__lead-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sites-list__note-badge {
+  cursor: pointer;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sites-list__note-badge--empty {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.14);
+  border-color: rgba(245, 158, 11, 0.55);
+}
+
+.sites-list__note-badge--set {
+  color: #1d6fa5;
+  background: rgba(59, 141, 253, 0.12);
+  border-color: rgba(59, 141, 253, 0.45);
+}
+
+.sites-list__note-popover {
+  width: min(280px, 72vw);
 }
 
 .sites-list__actions {

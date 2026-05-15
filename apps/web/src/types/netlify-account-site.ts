@@ -10,6 +10,7 @@ export type NetlifyLinkedSite = {
   adminUrl: string | null;
   sslUrl: string | null;
   hasThumbnail: boolean;
+  panelNote: string | null;
 };
 
 export type NetlifyAccountSitesResponse = {

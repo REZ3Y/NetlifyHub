@@ -65,8 +65,25 @@ model NetlifyLinkedAccount {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  siteNotes NetlifyLinkedSiteNote[]
+
   @@unique([userId, netlifyId])
   @@index([userId])
+}
+
+/** Panel-only title/note for a Netlify site under a linked account. */
+model NetlifyLinkedSiteNote {
+  id              String @id @default(cuid())
+  linkedAccountId String
+  linkedAccount   NetlifyLinkedAccount @relation(fields: [linkedAccountId], references: [id], onDelete: Cascade)
+  netlifySiteId   String
+  note            String @db.VarChar(512)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([linkedAccountId, netlifySiteId])
+  @@index([linkedAccountId])
 }
 
 model Session {
