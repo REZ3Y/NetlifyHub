@@ -17,9 +17,29 @@ if [[ -f "${script_dir}/scripts/install.sh" ]] && [[ -f "${script_dir}/pnpm-work
   exec bash "${script_dir}/scripts/install.sh"
 fi
 
+# Remote one-line install: bootstrap tools, clone, then run repo installer.
+bootstrap_dir="$(mktemp -d)"
+trap 'rm -rf "${bootstrap_dir}"' EXIT
+
+_repo_raw_base() {
+  local repo="${NETLIFYHUB_REPO_URL:-https://github.com/REZ3Y/NetlifyHub.git}"
+  local branch="${NETLIFYHUB_REPO_BRANCH:-main}"
+  repo="${repo%.git}"
+  repo="${repo#https://github.com/}"
+  repo="${repo#http://github.com/}"
+  echo "https://raw.githubusercontent.com/${repo}/${branch}"
+}
+
+curl -fsSL "$(_repo_raw_base)/scripts/install-prerequisites.sh" \
+  -o "${bootstrap_dir}/install-prerequisites.sh"
+
+# shellcheck source=/dev/null
+source "${bootstrap_dir}/install-prerequisites.sh"
+netlifyhub_install_prerequisites bootstrap
+
 DEFAULT_REPO="${NETLIFYHUB_REPO_URL:-https://github.com/REZ3Y/NetlifyHub.git}"
 TMP="$(mktemp -d)"
-trap 'rm -rf "${TMP}"' EXIT
+trap 'rm -rf "${TMP}" "${bootstrap_dir}"' EXIT
 
 echo "Cloning NetlifyHub from ${DEFAULT_REPO} ..."
 git clone --depth 1 "${DEFAULT_REPO}" "${TMP}/netlifyhub"

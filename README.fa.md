@@ -44,7 +44,9 @@ bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install
 
 در URL فقط اگر شاخهٔ پیش‌فرض GitHub شما **`main`** است از `main` استفاده کنید؛ اگر پیش‌فرض **`master`** است، همان را جایگزین کنید. فایل **`install.sh` باید در ریشهٔ مخزن روی GitHub باشد** (در صورت 404، نسخهٔ محلی را push کنید).
 
-این دستور [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git) را کلون می‌کند، وابستگی‌ها را نصب می‌کند، مایگریشن را اجرا می‌کند (PostgreSQL باید با `DATABASE_URL` در `.env` ریشهٔ مخزن هماهنگ باشد) و سپس ساخت ادمین اولیه را به‌صورت تعاملی اجرا می‌کند. ابتدا Postgres و Redis را بالا بیاورید (مثلاً `pnpm run docker:local`).
+این دستور مخزن را کلون می‌کند، پیش‌نیازها را بررسی می‌کند (git، Node.js 22+، pnpm — در صورت نبود تا حد امکان نصب می‌کند)، در صورت وجود Docker سرویس Postgres/Redis را بالا می‌آورد، مایگریشن را اجرا می‌کند و ادمین اولیه را می‌سازد.
+
+برای رد کردن Docker خودکار: `NETLIFYHUB_SKIP_DOCKER=1`. در ویندوز ابتدا Node.js 22+ را دستی نصب کنید و دوباره نصب را اجرا کنید.
 
 اگر خطای `404:: command not found` دیدید، به‌دلیل نبودن **`curl -f`** بوده: بدون آن، بدنهٔ خطای GitHub به bash داده می‌شود و اجرای آن معنی ندارد.
 

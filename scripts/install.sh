@@ -8,10 +8,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-if ! command -v pnpm >/dev/null 2>&1; then
-  echo "pnpm is required. Install with: corepack enable && corepack prepare pnpm@9.14.2 --activate"
-  exit 1
-fi
+# shellcheck source=scripts/install-prerequisites.sh
+source "${ROOT}/scripts/install-prerequisites.sh"
+
+export NETLIFYHUB_INSTALL_ROOT="$ROOT"
+netlifyhub_install_prerequisites full
 
 pnpm install
 
@@ -21,11 +22,6 @@ if [[ ! -f ".env" ]]; then
 fi
 
 echo ""
-echo "PostgreSQL and Redis must be running before migrations."
-echo "  Docker (recommended): pnpm run docker:local"
-echo "  Then ensure DATABASE_URL in .env matches (port 5433 for docker:local)."
-echo ""
-
 echo "Running database migrations..."
 pnpm db:generate
 pnpm db:migrate

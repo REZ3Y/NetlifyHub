@@ -48,7 +48,9 @@ bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install
 
 Use **`main`** in the URL only if that is your GitHub default branch; if the default is **`master`**, replace `main` with `master`. The file **`install.sh` must exist at the repository root** on GitHub (push your local copy if the one-line command returns HTTP 404).
 
-This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), installs dependencies, runs migrations (PostgreSQL must match `DATABASE_URL` in the repo-root `.env`), and launches the interactive admin bootstrap. Start Postgres and Redis first (for example `pnpm run docker:local`).
+This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), checks prerequisites (git, Node.js 22+, pnpm — installing them when possible), starts Postgres/Redis via Docker when available, runs migrations, and launches the interactive admin bootstrap.
+
+Set `NETLIFYHUB_SKIP_DOCKER=1` to skip auto-starting Docker. On Windows, install Node.js 22+ manually first, then re-run the installer.
 
 If you previously saw `404:: command not found`, you were missing **`curl -f`**: without it, curl prints GitHub’s error body and bash tries to run it as a script.
 
