@@ -22,6 +22,11 @@ const savingProfile = ref(false);
 const savingPassword = ref(false);
 const savingTimezone = ref(false);
 const savingProxy = ref(false);
+const downloadingBackup = ref(false);
+const restoringBackup = ref(false);
+const restoreFileInput = ref<HTMLInputElement | null>(null);
+const pendingRestorePayload = ref<unknown | null>(null);
+const showRestoreConfirm = ref(false);
 
 const profileModel = reactive({
   username: '',
@@ -168,6 +173,90 @@ function onClearProxyPassword() {
   message.info(t('settings.proxy.clearPending'));
 }
 
+async function downloadBackup() {
+  downloadingBackup.value = true;
+  try {
+    const { data } = await http.get<Record<string, unknown>>('/v1/me/backup', {
+      responseType: 'json',
+    });
+    const exportedAt =
+      typeof data.exportedAt === 'string' ? data.exportedAt.slice(0, 10) : 'export';
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `netlifyhub-backup-${exportedAt}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    message.error(t('settings.backup.downloadError'));
+  } finally {
+    downloadingBackup.value = false;
+  }
+}
+
+function onRestoreFileChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = typeof reader.result === 'string' ? reader.result : '';
+      pendingRestorePayload.value = JSON.parse(text) as unknown;
+      showRestoreConfirm.value = true;
+    } catch {
+      message.error(t('settings.backup.invalidFile'));
+    } finally {
+      input.value = '';
+    }
+  };
+  reader.onerror = () => message.error(t('settings.backup.invalidFile'));
+  reader.readAsText(file);
+}
+
+async function confirmRestore(): Promise<boolean> {
+  if (!pendingRestorePayload.value) return false;
+  restoringBackup.value = true;
+  try {
+    const { data } = await http.post<{
+      user: AuthUser;
+      accountsRestored: number;
+      notesRestored: number;
+    }>('/v1/me/restore', pendingRestorePayload.value);
+    auth.setUser(data.user);
+    applyUserToForms(data.user);
+    message.success(
+      t('settings.backup.restoreSuccess', {
+        accounts: data.accountsRestored,
+        notes: data.notesRestored,
+      })
+    );
+    pendingRestorePayload.value = null;
+    return true;
+  } catch (e) {
+    const msg =
+      isAxiosError(e) &&
+      e.response?.data &&
+      typeof e.response.data === 'object' &&
+      'message' in e.response.data &&
+      typeof (e.response.data as { message: unknown }).message === 'string'
+        ? (e.response.data as { message: string }).message
+        : t('settings.backup.restoreError');
+    message.error(msg);
+    return false;
+  } finally {
+    restoringBackup.value = false;
+  }
+}
+
+function cancelRestore() {
+  showRestoreConfirm.value = false;
+  pendingRestorePayload.value = null;
+}
+
 async function saveProxy() {
   if (proxyModel.enabled) {
     if (!proxyModel.host.trim()) {
@@ -208,6 +297,52 @@ async function saveProxy() {
     <n-h2>{{ t('settings.title') }}</n-h2>
 
     <div class="settings-columns">
+      <section class="settings-column">
+        <n-h3 class="settings-column__title">{{ t('settings.sectionMain') }}</n-h3>
+        <n-space vertical size="large" style="width: 100%">
+          <n-card :title="t('profile.timezone')" :segmented="{ content: true }">
+            <n-p depth="3" style="margin-top: 0">{{ t('profile.timezoneHint') }}</n-p>
+            <n-form label-placement="top">
+              <n-form-item :label="t('profile.timezone')">
+                <n-select
+                  v-model:value="profileModel.timezone"
+                  filterable
+                  :options="timezoneOptions"
+                  :consistent-menu-width="false"
+                />
+              </n-form-item>
+              <n-button type="primary" :loading="savingTimezone" @click="saveTimezone">
+                {{ t('profile.saveTimezone') }}
+              </n-button>
+            </n-form>
+          </n-card>
+
+          <n-card :title="t('settings.backup.title')" :segmented="{ content: true }">
+            <n-p depth="3" style="margin-top: 0">{{ t('settings.backup.hint') }}</n-p>
+            <n-space vertical :size="16" style="width: 100%; margin-top: 12px">
+              <n-button type="primary" :loading="downloadingBackup" @click="downloadBackup">
+                {{ t('settings.backup.download') }}
+              </n-button>
+
+              <n-divider />
+
+              <n-text strong>{{ t('settings.backup.restoreTitle') }}</n-text>
+              <n-p depth="3" style="margin: 0">{{ t('settings.backup.restoreHint') }}</n-p>
+              <input
+                ref="restoreFileInput"
+                type="file"
+                accept="application/json,.json"
+                class="settings-backup__file-input"
+                @change="onRestoreFileChange"
+              />
+              <n-button @click="restoreFileInput?.click()">
+                {{ t('settings.backup.chooseFile') }}
+              </n-button>
+            </n-space>
+          </n-card>
+        </n-space>
+      </section>
+
       <section class="settings-column">
         <n-h3 class="settings-column__title">{{ t('settings.sectionProxy') }}</n-h3>
         <n-space vertical size="large" style="width: 100%">
@@ -332,29 +467,20 @@ async function saveProxy() {
           </n-card>
         </n-space>
       </section>
-
-      <section class="settings-column">
-        <n-h3 class="settings-column__title">{{ t('settings.sectionMain') }}</n-h3>
-        <n-space vertical size="large" style="width: 100%">
-          <n-card :title="t('profile.timezone')" :segmented="{ content: true }">
-            <n-p depth="3" style="margin-top: 0">{{ t('profile.timezoneHint') }}</n-p>
-            <n-form label-placement="top">
-              <n-form-item :label="t('profile.timezone')">
-                <n-select
-                  v-model:value="profileModel.timezone"
-                  filterable
-                  :options="timezoneOptions"
-                  :consistent-menu-width="false"
-                />
-              </n-form-item>
-              <n-button type="primary" :loading="savingTimezone" @click="saveTimezone">
-                {{ t('profile.saveTimezone') }}
-              </n-button>
-            </n-form>
-          </n-card>
-        </n-space>
-      </section>
     </div>
+
+    <n-modal
+      v-model:show="showRestoreConfirm"
+      preset="dialog"
+      type="warning"
+      :title="t('settings.backup.restoreTitle')"
+      :content="t('settings.backup.restoreConfirm')"
+      :positive-text="t('settings.backup.restoreConfirmBtn')"
+      :negative-text="t('settings.backup.restoreCancel')"
+      :loading="restoringBackup"
+      @positive-click="confirmRestore"
+      @negative-click="cancelRestore"
+    />
   </n-space>
 </template>
 
@@ -376,5 +502,9 @@ async function saveProxy() {
   .settings-columns {
     grid-template-columns: 1fr;
   }
+}
+
+.settings-backup__file-input {
+  display: none;
 }
 </style>

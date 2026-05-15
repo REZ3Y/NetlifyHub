@@ -8,6 +8,7 @@ import {
   updateUsername,
 } from '../services/auth.service.js';
 import { encryptSecret } from '../lib/token-crypto.js';
+import { exportPanelBackup, restorePanelBackup } from '../services/panel-backup.service.js';
 
 function isValidIanaTimeZone(tz: string): boolean {
   try {
@@ -241,5 +242,41 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     return passwordChanged
       ? { user: toMeResponse(out), mustReauth: true }
       : { user: toMeResponse(out) };
+  });
+
+  app.get('/backup', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const backup = await exportPanelBackup(user.id);
+    const filename = `netlifyhub-backup-${backup.exportedAt.slice(0, 10)}.json`;
+    return reply
+      .header('Content-Type', 'application/json; charset=utf-8')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(backup);
+  });
+
+  app.post('/restore', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const result = await restorePanelBackup(user.id, request.body);
+    if (!result.ok) {
+      return reply.code(400).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+
+    const row = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      select: meSelect,
+    });
+
+    return {
+      user: toMeResponse(row),
+      accountsRestored: result.accountsRestored,
+      notesRestored: result.notesRestored,
+    };
   });
 };
