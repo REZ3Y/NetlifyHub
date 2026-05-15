@@ -31,7 +31,11 @@ const worker = new Worker(
     if (job.name === TELEGRAM_QUOTA_JOB_NAME) {
       log.info({ jobId: job.id }, 'Running Telegram quota monitor');
       const result = await runTelegramQuotaMonitor(env);
-      log.info({ jobId: job.id, result }, 'Telegram quota monitor finished');
+      if (result && typeof result === 'object' && 'abortReason' in result && result.abortReason) {
+        log.warn({ jobId: job.id, result }, 'Telegram quota monitor aborted');
+      } else {
+        log.info({ jobId: job.id, result }, 'Telegram quota monitor finished');
+      }
       return result;
     }
     log.warn({ jobId: job.id, name: job.name }, 'Unknown job name');

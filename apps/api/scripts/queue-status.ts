@@ -64,6 +64,40 @@ try {
       '\nNo hourly-quota-check repeatable job. Is the API running? Scheduler registers on API startup.'
     );
   }
+
+  const recent = await queue.getJobs(
+    ['completed', 'failed', 'waiting', 'active', 'delayed'],
+    0,
+    8,
+    true
+  );
+  console.log('\nRecent jobs (newest first, up to 8):');
+  if (!recent.length) {
+    console.log('  (none)');
+  } else {
+    for (const job of recent) {
+      const state = await job.getState();
+      console.log(
+        '  -',
+        `id=${job.id}`,
+        `name=${job.name}`,
+        `state=${state}`,
+        job.finishedOn ? `finished=${new Date(job.finishedOn).toISOString()}` : ''
+      );
+      if (job.returnvalue && typeof job.returnvalue === 'object') {
+        console.log('    result:', JSON.stringify(job.returnvalue));
+      }
+      if (job.failedReason) {
+        console.log('    failedReason:', job.failedReason);
+      }
+    }
+  }
+
+  if (waiting === 0 && active === 0 && completed === 0 && failed === 0) {
+    console.log(
+      '\nIf you ran telegram:trigger but completed=0, the worker is likely not running. Use: pnpm dev'
+    );
+  }
 } finally {
   await queue.close();
   await connection.quit();

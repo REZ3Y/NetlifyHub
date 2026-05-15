@@ -88,17 +88,30 @@ export type TelegramQuotaMonitorResult = {
   alerted: number;
   skipped: number;
   failed: number;
+  belowThreshold: number;
+  noQuotaData: number;
+  /** Set when the run exits before checking accounts. */
+  abortReason?: string;
 };
 
 export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMonitorResult> {
+  const empty = (): TelegramQuotaMonitorResult => ({
+    checked: 0,
+    alerted: 0,
+    skipped: 0,
+    failed: 0,
+    belowThreshold: 0,
+    noQuotaData: 0,
+  });
+
   const settings = await getTelegramSettingsForWorker();
   if (!settings) {
-    return { checked: 0, alerted: 0, skipped: 0, failed: 0 };
+    return { ...empty(), abortReason: 'Telegram disabled, missing bot token, or no recipients' };
   }
 
   const botToken = await resolveTelegramBotToken(env, settings.botTokenEncrypted);
   if (!botToken) {
-    return { checked: 0, alerted: 0, skipped: 0, failed: 0 };
+    return { ...empty(), abortReason: 'Bot token could not be decrypted (TOKEN_ENCRYPTION_KEY?)' };
   }
 
   const accounts = await prisma.netlifyLinkedAccount.findMany({
@@ -117,6 +130,8 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
     alerted: 0,
     skipped: 0,
     failed: 0,
+    belowThreshold: 0,
+    noQuotaData: 0,
   };
 
   for (const account of accounts) {
@@ -145,10 +160,16 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
       settings.bandwidthThresholdPercent,
       settings.creditThresholdPercent
     );
-    if (!check) continue;
+    if (!check) {
+      result.noQuotaData += 1;
+      continue;
+    }
 
     const percent = usagePercent(check.used, check.included);
-    if (percent === null || percent < check.thresholdPercent) continue;
+    if (percent === null || percent < check.thresholdPercent) {
+      result.belowThreshold += 1;
+      continue;
+    }
 
     const message = buildAlertMessage({
       accountLabel,
