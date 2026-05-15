@@ -23,7 +23,9 @@ const queue = new Queue(TELEGRAM_QUOTA_QUEUE, { connection });
 try {
   const job = await queue.add(TELEGRAM_QUOTA_JOB_NAME, { manual: true }, { removeOnComplete: 100 });
   console.log('Enqueued job', job.id, 'on queue', TELEGRAM_QUOTA_QUEUE);
-  console.log('Ensure the worker is running: pnpm dev (not dev:panel)');
+  console.log(
+    'Ensure the worker is running (e.g. pnpm dev:panel or pnpm dev:worker in another terminal).'
+  );
 } finally {
   await queue.close();
   await connection.quit();
