@@ -267,6 +267,15 @@ export const messages = {
         optional: 'Optional',
         validation: 'When the proxy is on, host and port are required.',
       },
+      cache: {
+        title: 'Netlify API cache',
+        hint: 'How long usage, sites, and observability responses are kept in memory before refetching from Netlify (1–1440 minutes). Applies to all users of this panel.',
+        ttlMinutes: 'Cache duration (minutes)',
+        save: 'Save cache settings',
+        saved: 'Cache settings saved',
+        loadError: 'Could not load cache settings',
+        saveError: 'Could not save cache settings',
+      },
       sectionBackup: 'Backup / restore',
       backup: {
         title: 'Panel data backup',
@@ -589,6 +598,15 @@ export const messages = {
         saved: 'تنظیمات پروکسی ذخیره شد',
         optional: 'اختیاری',
         validation: 'وقتی پروکسی روشن است، میزبان و پورت الزامی‌اند.',
+      },
+      cache: {
+        title: 'کش API نتلیفای',
+        hint: 'مدت نگه‌داری پاسخ‌های usage، سایت‌ها و observability در حافظه قبل از درخواست مجدد از نتلیفای (۱ تا ۱۴۴۰ دقیقه). برای همهٔ کاربران این پنل اعمال می‌شود.',
+        ttlMinutes: 'مدت کش (دقیقه)',
+        save: 'ذخیرهٔ تنظیمات کش',
+        saved: 'تنظیمات کش ذخیره شد',
+        loadError: 'بارگذاری تنظیمات کش ناموفق بود',
+        saveError: 'ذخیرهٔ تنظیمات کش ناموفق بود',
       },
       sectionBackup: 'پشتیبان‌گیری / بازیابی',
       backup: {

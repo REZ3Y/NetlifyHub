@@ -3,7 +3,7 @@ import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import { parseNextUrlFromLinkHeader } from '@netlifyhub/netlify-client';
 import type { FastifyReply } from 'fastify';
 import type { Env } from '../config/env.js';
-import { NETLIFY_LINKED_CACHE_TTL_MS } from '../lib/netlify-cache-constants.js';
+import { getNetlifyCacheTtlMs } from './panel-settings.service.js';
 import type { NetlifyClient } from '../integrations/netlify/index.js';
 import { createNetlifyFetchForUser } from '../lib/netlify-proxied-fetch.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
@@ -245,10 +245,11 @@ export async function fetchLinkedNetlifyAccountSites(
         return a.name.localeCompare(b.name);
       });
 
+    const ttlMs = await getNetlifyCacheTtlMs();
     sitesCache.set(cacheKey, {
       sites,
       teamName,
-      expiresAt: Date.now() + NETLIFY_LINKED_CACHE_TTL_MS,
+      expiresAt: Date.now() + ttlMs,
     });
 
     const sitesWithNotes = await attachPanelNotesToSites(linkedAccountId, sites);

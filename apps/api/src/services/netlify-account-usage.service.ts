@@ -5,7 +5,7 @@ import { prisma } from '../db/prisma.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 const GIB = 1024 ** 3;
-import { NETLIFY_LINKED_CACHE_TTL_MS } from '../lib/netlify-cache-constants.js';
+import { getNetlifyCacheTtlMs } from './panel-settings.service.js';
 
 type UsageCacheEntry = {
   usage: NetlifyAccountUsageDto;
@@ -35,6 +35,7 @@ export type NetlifyAccountUsageDto = {
     used: number;
     included: number;
     remaining: number;
+    usedLabel: string;
     remainingLabel: string;
     includedLabel: string;
   } | null;
@@ -54,6 +55,8 @@ export type NetlifyAccountUsageSummaryDto = {
   planName: string | null;
   quotaLabel: string | null;
   quotaKind: 'bandwidth' | 'credits' | null;
+  used: number | null;
+  included: number | null;
 };
 
 function formatBytesLabel(bytes: number): string {
@@ -103,6 +106,7 @@ function readCreditsUsage(account: NetlifyAccount): {
   used: number;
   included: number;
   remaining: number;
+  usedLabel: string;
   remainingLabel: string;
   includedLabel: string;
 } | null {
@@ -117,6 +121,7 @@ function readCreditsUsage(account: NetlifyAccount): {
     used,
     included,
     remaining,
+    usedLabel: formatCreditsLabel(used),
     remainingLabel: formatCreditsLabel(remaining),
     includedLabel: formatCreditsLabel(included),
   };
@@ -167,13 +172,17 @@ export function usageToSummary(usage: NetlifyAccountUsageDto): NetlifyAccountUsa
     return {
       planName: usage.planName,
       quotaKind: 'credits',
-      quotaLabel: `${usage.credits.remainingLabel} / ${usage.credits.includedLabel}`,
+      used: usage.credits.used,
+      included: usage.credits.included,
+      quotaLabel: `${usage.credits.usedLabel} / ${usage.credits.includedLabel}`,
     };
   }
   if (usage.bandwidth) {
     return {
       planName: usage.planName,
       quotaKind: 'bandwidth',
+      used: usage.bandwidth.used,
+      included: usage.bandwidth.included,
       quotaLabel: `${usage.bandwidth.usedLabel} / ${usage.bandwidth.includedLabel}`,
     };
   }
@@ -181,6 +190,8 @@ export function usageToSummary(usage: NetlifyAccountUsageDto): NetlifyAccountUsa
     planName: usage.planName,
     quotaKind: null,
     quotaLabel: null,
+    used: null,
+    included: null,
   };
 }
 
@@ -394,9 +405,10 @@ export async function fetchLinkedNetlifyAccountUsage(
     })),
   };
 
+  const ttlMs = await getNetlifyCacheTtlMs();
   usageCache.set(cacheKey, {
     usage,
-    expiresAt: Date.now() + NETLIFY_LINKED_CACHE_TTL_MS,
+    expiresAt: Date.now() + ttlMs,
   });
 
   return { ok: true, usage };

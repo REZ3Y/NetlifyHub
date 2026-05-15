@@ -15,6 +15,8 @@ import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { LinkedNetlifyAccount } from '@/types/netlify-linked-account';
 import type { NetlifyAccountUsageSummary } from '@/types/netlify-account-usage-summary';
+import NetlifyPlanOutlineBadge from '@/components/NetlifyPlanOutlineBadge.vue';
+import NetlifyQuotaUsageMeter from '@/components/NetlifyQuotaUsageMeter.vue';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -59,20 +61,9 @@ async function loadUsageSummaries(ids: string[]) {
   }
 }
 
-function planCell(row: LinkedNetlifyAccount): string {
-  if (!row.enabled) return '—';
-  const s = usageSummaries.value[row.id];
-  if (s?.planName) return s.planName;
-  if (summariesLoading.value) return '…';
-  return '—';
-}
-
-function quotaCell(row: LinkedNetlifyAccount): string {
-  if (!row.enabled) return '—';
-  const s = usageSummaries.value[row.id];
-  if (s?.quotaLabel) return s.quotaLabel;
-  if (summariesLoading.value) return '…';
-  return '—';
+function usageSummary(row: LinkedNetlifyAccount): NetlifyAccountUsageSummary | null {
+  if (!row.enabled) return null;
+  return usageSummaries.value[row.id] ?? null;
 }
 
 async function load() {
@@ -240,8 +231,28 @@ function renderIcon(icon: typeof EyeOutline) {
                   </td>
                   <td>{{ row.label?.trim() ? row.label : '—' }}</td>
                   <td>{{ row.email ?? '—' }}</td>
-                  <td>{{ planCell(row) }}</td>
-                  <td class="tabular-nums">{{ quotaCell(row) }}</td>
+                  <td>
+                    <NetlifyPlanOutlineBadge
+                      v-if="usageSummary(row)?.planName"
+                      :plan-name="usageSummary(row)!.planName!"
+                    />
+                    <template v-else-if="row.enabled && summariesLoading">…</template>
+                    <template v-else>—</template>
+                  </td>
+                  <td class="col-quota">
+                    <NetlifyQuotaUsageMeter
+                      v-if="
+                        usageSummary(row)?.quotaLabel &&
+                        usageSummary(row)!.used != null &&
+                        usageSummary(row)!.included != null
+                      "
+                      :label="usageSummary(row)!.quotaLabel!"
+                      :used="usageSummary(row)!.used!"
+                      :included="usageSummary(row)!.included!"
+                    />
+                    <template v-else-if="row.enabled && summariesLoading">…</template>
+                    <template v-else>—</template>
+                  </td>
                   <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyCreatedAt) }}</td>
                   <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyLastLogin) }}</td>
                   <td class="col-actions">
@@ -407,6 +418,10 @@ function renderIcon(icon: typeof EyeOutline) {
 .col-idx {
   width: 52px;
 }
+.col-quota {
+  min-width: 140px;
+}
+
 .col-actions {
   width: 1%;
   white-space: nowrap;

@@ -12,6 +12,7 @@ import { healthRoutes } from './routes/health.routes.js';
 import { meRoutes } from './routes/me.routes.js';
 import { netlifyAccountsRoutes } from './routes/netlify-accounts.routes.js';
 import { deployArtifactsRoutes } from './routes/deploy-artifacts.routes.js';
+import { panelSettingsRoutes } from './routes/panel-settings.routes.js';
 import { registerSpaStatic } from './plugins/spa-static.js';
 import { MAX_DEPLOY_ZIP_BYTES } from './lib/upload-storage.js';
 
@@ -60,6 +61,7 @@ export async function buildApp(env: Env) {
   await app.register(meRoutes, { prefix: '/v1/me' });
   await app.register(netlifyAccountsRoutes, { prefix: '/v1/netlify-accounts' });
   await app.register(deployArtifactsRoutes, { prefix: '/v1/deploy-artifacts' });
+  await app.register(panelSettingsRoutes, { prefix: '/v1/panel-settings' });
 
   if (env.STATIC_WEB_ROOT) {
     await registerSpaStatic(app, env.STATIC_WEB_ROOT);

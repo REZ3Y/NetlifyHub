@@ -100,6 +100,14 @@ model Session {
 }
 
 /** Zip artifacts stored in the panel for manual Netlify deploys. */
+/** Singleton panel-wide settings (one row, id = "singleton"). */
+model PanelSettings {
+  id                   String   @id @default("singleton")
+  /** TTL for Netlify-linked API caches (usage, sites, observability). */
+  netlifyCacheTtlMinutes Int      @default(30)
+  updatedAt            DateTime @updatedAt
+}
+
 model PanelDeployArtifact {
   id               String @id @default(cuid())
   userId           String

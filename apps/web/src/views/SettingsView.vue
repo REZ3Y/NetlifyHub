@@ -9,6 +9,7 @@ import { http } from '@/api/http';
 import { isAxiosError } from 'axios';
 import { listIanaTimeZones, useUserDateTime } from '@/composables/useUserDateTime';
 import type { AuthUser } from '@/types/auth';
+import type { PanelSettings } from '@/types/panel-settings';
 
 const { t } = useI18n();
 const message = useMessage();
@@ -22,6 +23,11 @@ const savingProfile = ref(false);
 const savingPassword = ref(false);
 const savingTimezone = ref(false);
 const savingProxy = ref(false);
+const loadingCacheSettings = ref(false);
+const savingCacheSettings = ref(false);
+const cacheTtlMinutes = ref(30);
+
+const isAdmin = computed(() => auth.user?.role === 'ADMIN');
 const downloadingBackup = ref(false);
 const restoringBackup = ref(false);
 const restoreFileInput = ref<HTMLInputElement | null>(null);
@@ -88,9 +94,38 @@ function applyUserToForms(u: AuthUser) {
   clearProxyPassword.value = false;
 }
 
+async function loadCacheSettings() {
+  if (!isAdmin.value) return;
+  loadingCacheSettings.value = true;
+  try {
+    const { data } = await http.get<{ settings: PanelSettings }>('/v1/panel-settings');
+    cacheTtlMinutes.value = data.settings.netlifyCacheTtlMinutes;
+  } catch {
+    message.error(t('settings.cache.loadError'));
+  } finally {
+    loadingCacheSettings.value = false;
+  }
+}
+
+async function saveCacheSettings() {
+  savingCacheSettings.value = true;
+  try {
+    const { data } = await http.patch<{ settings: PanelSettings }>('/v1/panel-settings', {
+      netlifyCacheTtlMinutes: cacheTtlMinutes.value,
+    });
+    cacheTtlMinutes.value = data.settings.netlifyCacheTtlMinutes;
+    message.success(t('settings.cache.saved'));
+  } catch {
+    message.error(t('settings.cache.saveError'));
+  } finally {
+    savingCacheSettings.value = false;
+  }
+}
+
 onMounted(async () => {
   await auth.fetchMe();
   if (auth.user) applyUserToForms(auth.user);
+  void loadCacheSettings();
 });
 
 async function saveUsername() {
@@ -300,6 +335,26 @@ async function saveProxy() {
       <section class="settings-column">
         <n-h3 class="settings-column__title">{{ t('settings.sectionMain') }}</n-h3>
         <n-space vertical size="large" style="width: 100%">
+          <n-card v-if="isAdmin" :title="t('settings.cache.title')" :segmented="{ content: true }">
+            <n-spin :show="loadingCacheSettings">
+              <n-p depth="3" style="margin-top: 0">{{ t('settings.cache.hint') }}</n-p>
+              <n-form label-placement="top" style="margin-top: 12px">
+                <n-form-item :label="t('settings.cache.ttlMinutes')">
+                  <n-input-number
+                    v-model:value="cacheTtlMinutes"
+                    :min="1"
+                    :max="1440"
+                    :step="5"
+                    style="width: 160px"
+                  />
+                </n-form-item>
+                <n-button type="primary" :loading="savingCacheSettings" @click="saveCacheSettings">
+                  {{ t('settings.cache.save') }}
+                </n-button>
+              </n-form>
+            </n-spin>
+          </n-card>
+
           <n-card :title="t('profile.timezone')" :segmented="{ content: true }">
             <n-p depth="3" style="margin-top: 0">{{ t('profile.timezoneHint') }}</n-p>
             <n-form label-placement="top">

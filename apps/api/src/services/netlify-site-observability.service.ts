@@ -1,6 +1,6 @@
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import type { Env } from '../config/env.js';
-import { NETLIFY_LINKED_CACHE_TTL_MS } from '../lib/netlify-cache-constants.js';
+import { getNetlifyCacheTtlMs } from './panel-settings.service.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 export type ObservabilityRange = '1h' | '6h' | '24h' | '7d';
@@ -237,9 +237,10 @@ export async function fetchLinkedNetlifySiteObservability(
       const { data } = await clientResult.client.requestJson<unknown>('GET', path);
       const normalized = normalizeObservabilityPayload(data, range, start, end, label);
       if (normalized) {
+        const ttlMs = await getNetlifyCacheTtlMs();
         cache.set(key, {
           data: normalized,
-          expiresAt: Date.now() + NETLIFY_LINKED_CACHE_TTL_MS,
+          expiresAt: Date.now() + ttlMs,
         });
         return { ok: true, observability: normalized };
       }
@@ -263,6 +264,7 @@ export async function fetchLinkedNetlifySiteObservability(
     label,
     'Observability metrics are not exposed on the public Netlify REST API for this token.'
   );
-  cache.set(key, { data: empty, expiresAt: Date.now() + NETLIFY_LINKED_CACHE_TTL_MS });
+  const ttlMs = await getNetlifyCacheTtlMs();
+  cache.set(key, { data: empty, expiresAt: Date.now() + ttlMs });
   return { ok: true, observability: empty };
 }
