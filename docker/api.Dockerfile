@@ -16,7 +16,8 @@ COPY packages/netlify-client/package.json packages/netlify-client/
 # Schema is not copied yet; postinstall must not run prisma generate here.
 RUN pnpm install --ignore-scripts
 COPY . .
-RUN pnpm --filter @netlifyhub/shared build
+RUN pnpm --filter @netlifyhub/shared build \
+ && test -f packages/shared/dist/index.d.ts
 RUN pnpm --filter @netlifyhub/netlify-client build
 RUN pnpm --filter @netlifyhub/api exec prisma generate
 RUN pnpm --filter @netlifyhub/api build
