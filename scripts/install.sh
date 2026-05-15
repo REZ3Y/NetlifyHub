@@ -25,12 +25,16 @@ fi
 
 _log_info "Ensuring PostgreSQL and Redis are available..."
 netlifyhub_ensure_datastores
+netlifyhub_verify_database_ready
 
 if ! grep -qE '^DATABASE_URL=.+$' .env 2>/dev/null; then
   echo ""
   echo "ERROR: DATABASE_URL is missing or empty in .env"
   exit 1
 fi
+
+_sync_env_files
+grep '^DATABASE_URL=' .env | head -1 | sed 's/^/[NetlifyHub] /'
 
 echo ""
 echo "Running database migrations..."

@@ -322,7 +322,50 @@ _patch_env_database_url() {
   else
     printf '\nDATABASE_URL=%s\n' "$url" >>"$env_file"
   fi
+  _sync_env_files
   _log_info "DATABASE_URL set to localhost:${port} in .env"
+}
+
+_sync_env_files() {
+  local root="${NETLIFYHUB_INSTALL_ROOT:-$(pwd)}"
+  local env_file="${root}/.env"
+  local api_env="${root}/apps/api/.env"
+  if [[ -f "$env_file" ]]; then
+    mkdir -p "${root}/apps/api"
+    cp -f "$env_file" "$api_env"
+  fi
+}
+
+_database_url_port() {
+  local env_file="${NETLIFYHUB_INSTALL_ROOT:-$(pwd)}/.env"
+  local url
+  url="$(grep -E '^DATABASE_URL=' "$env_file" 2>/dev/null | head -1 | cut -d= -f2- || true)"
+  if [[ "$url" =~ :([0-9]+)/ ]]; then
+    echo "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  return 1
+}
+
+# If .env points at a closed port but the other default Postgres port is open, fix it.
+_normalize_database_url_port() {
+  local configured_port desired_port
+  configured_port="$(_database_url_port)" || return 0
+
+  if _port_open "$configured_port"; then
+    return 0
+  fi
+
+  if [[ "$configured_port" == "5433" ]] && _port_open 5432; then
+    desired_port=5432
+  elif [[ "$configured_port" == "5432" ]] && _port_open 5433; then
+    desired_port=5433
+  else
+    return 0
+  fi
+
+  _log_warn "DATABASE_URL used port ${configured_port} (not reachable); switching to ${desired_port}."
+  _patch_env_database_url "$desired_port"
 }
 
 _ensure_postgres_role_and_db() {
@@ -448,6 +491,7 @@ netlifyhub_ensure_datastores() {
   pg_port="$(_postgres_port_open)" || true
   if [[ -n "${pg_port:-}" ]] && _port_open 6379; then
     _patch_env_database_url "$pg_port"
+    _normalize_database_url_port
     _log_info "PostgreSQL (:${pg_port}) and Redis (:6379) already reachable."
     return 0
   fi
@@ -469,6 +513,31 @@ netlifyhub_ensure_datastores() {
   _log_err "  2) apt install postgresql redis-server (Debian/Ubuntu) and re-run"
   _log_err "  3) Start your own Postgres/Redis and set DATABASE_URL + REDIS_URL in .env"
   exit 1
+}
+
+# Call immediately before prisma migrate (after .env exists).
+netlifyhub_verify_database_ready() {
+  _normalize_database_url_port
+
+  local pg_port
+  pg_port="$(_database_url_port)" || {
+    _log_err "Could not read DATABASE_URL port from .env"
+    exit 1
+  }
+
+  if ! _port_open "$pg_port"; then
+    _log_err "PostgreSQL is not reachable on localhost:${pg_port} (from DATABASE_URL)."
+    _log_err "Start Postgres or re-run the installer to auto-install it."
+    exit 1
+  fi
+
+  if ! _port_open 6379; then
+    _log_err "Redis is not reachable on localhost:6379 (REDIS_URL)."
+    exit 1
+  fi
+
+  _sync_env_files
+  _log_info "Database port ${pg_port} and Redis are reachable."
 }
 
 # Public entry — call from install.sh (after cd to repo root).
