@@ -36,6 +36,7 @@ model User {
   sessions  Session[]
   netlifyLinkedAccounts NetlifyLinkedAccount[]
   deployArtifacts PanelDeployArtifact[]
+  telegramProxySettings TelegramNotificationSettings[] @relation("TelegramProxyUser")
 }
 
 model NetlifyLinkedAccount {
@@ -106,6 +107,47 @@ model PanelSettings {
   /** TTL for Netlify-linked API caches (usage, sites, observability). */
   netlifyCacheTtlMinutes Int      @default(30)
   updatedAt            DateTime @updatedAt
+}
+
+enum TelegramNotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+/** Singleton Telegram alert configuration (id = "singleton"). */
+model TelegramNotificationSettings {
+  id                         String   @id @default("singleton")
+  enabled                    Boolean  @default(false)
+  botTokenEncrypted            String?
+  /** Admin whose outbound proxy is used for Telegram API calls. */
+  proxyUserId                  String?
+  proxyUser                    User?    @relation("TelegramProxyUser", fields: [proxyUserId], references: [id], onDelete: SetNull)
+  /** JSON array of Telegram chat/user IDs (strings). */
+  recipientChatIdsJson         String   @default("[]") @db.Text
+  bandwidthThresholdPercent    Int      @default(80)
+  creditThresholdPercent       Int      @default(80)
+  updatedAt                  DateTime @updatedAt
+}
+
+model TelegramNotificationLog {
+  id               String                     @id @default(cuid())
+  status           TelegramNotificationStatus @default(PENDING)
+  message          String                     @db.Text
+  /** JSON array of recipient chat IDs. */
+  recipientsJson   String                     @db.Text
+  linkedAccountId  String?
+  accountLabel     String?                    @db.VarChar(255)
+  teamSlug         String?                    @db.VarChar(128)
+  quotaKind        String?                    @db.VarChar(32)
+  usedPercent      Float?
+  errorMessage     String?                    @db.Text
+  sentAt           DateTime?
+  createdAt        DateTime                   @default(now())
+
+  @@index([createdAt])
+  @@index([linkedAccountId, createdAt])
 }
 
 model PanelDeployArtifact {

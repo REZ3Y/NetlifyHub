@@ -10,6 +10,7 @@ export const messages = {
       netlifyAccountsList: 'Linked Netlify accounts',
       registerNetlifyAccount: 'Register new account',
       deployArtifacts: 'Deploy files',
+      telegramNotifications: 'Telegram alerts',
       logout: 'Sign out',
     },
     auth: {
@@ -298,6 +299,50 @@ export const messages = {
         invalidFile: 'Invalid backup file (JSON required).',
       },
     },
+    telegramNotifications: {
+      title: 'Telegram notifications',
+      subtitle:
+        'Hourly quota checks for linked Netlify accounts. Alerts are sent when bandwidth or credits exceed configured thresholds.',
+      adminOnly: 'Only administrators can manage Telegram notifications.',
+      tabs: {
+        settings: 'Settings',
+        logs: 'Logs',
+      },
+      settings: {
+        enabled: 'Enable Telegram alerts',
+        botToken: 'Bot token',
+        botTokenPlaceholder: 'Paste a new bot token to replace the stored one',
+        botTokenHint:
+          'The token is encrypted at rest. Leave empty when saving other fields to keep the current token. Outbound sends use your proxy settings when proxy is enabled.',
+        recipients: 'Recipient Telegram user IDs',
+        recipientPlaceholder: 'e.g. 123456789',
+        addRecipient: 'Add',
+        noRecipients: 'No recipients configured yet.',
+        bandwidthThreshold: 'Bandwidth alert threshold (%)',
+        creditThreshold: 'Credits alert threshold (%)',
+        thresholdHint:
+          'Alerts fire when usage reaches or exceeds this percentage of the included quota. Free plans use credits; paid plans use bandwidth.',
+        save: 'Save Telegram settings',
+        saved: 'Telegram settings saved',
+        loadError: 'Could not load Telegram settings',
+        saveError: 'Could not save Telegram settings',
+      },
+      logs: {
+        empty: 'No notification logs yet.',
+        loadError: 'Could not load notification logs',
+        colTime: 'Sent at',
+        colStatus: 'Status',
+        colAccount: 'Account',
+        colRecipients: 'Recipients',
+        colMessage: 'Message',
+        status: {
+          PENDING: 'Pending',
+          SENT: 'Sent',
+          FAILED: 'Failed',
+          SKIPPED: 'Skipped',
+        },
+      },
+    },
     profile: {
       title: 'Profile',
       username: 'Username',
@@ -339,6 +384,7 @@ export const messages = {
       netlifyAccountsList: 'اکانت‌های نتلیفای',
       registerNetlifyAccount: 'ثبت اکانت جدید',
       deployArtifacts: 'فایل‌های استقرار',
+      telegramNotifications: 'اعلان تلگرام',
       logout: 'خروج',
     },
     auth: {
@@ -628,6 +674,50 @@ export const messages = {
         restoreError: 'بازیابی ناموفق بود',
         restoreSuccess: '{accounts} اکانت و {notes} یادداشت سایت بازیابی شد.',
         invalidFile: 'فایل پشتیبان نامعتبر است (باید JSON باشد).',
+      },
+    },
+    telegramNotifications: {
+      title: 'اعلان‌های تلگرام',
+      subtitle:
+        'هر ساعت سهمیهٔ اکانت‌های متصل نتلیفای بررسی می‌شود. در صورت عبور از آستانهٔ پهنای باند یا کردیت، پیام ارسال می‌شود.',
+      adminOnly: 'فقط مدیران می‌توانند اعلان تلگرام را مدیریت کنند.',
+      tabs: {
+        settings: 'تنظیمات',
+        logs: 'لاگ‌ها',
+      },
+      settings: {
+        enabled: 'فعال‌سازی اعلان تلگرام',
+        botToken: 'توکن ربات',
+        botTokenPlaceholder: 'توکن جدید را برای جایگزینی وارد کنید',
+        botTokenHint:
+          'توکن رمزنگاری‌شده ذخیره می‌شود. برای حفظ توکن فعلی هنگام ذخیرهٔ سایر فیلدها خالی بگذارید. در صورت روشن بودن پروکسی، ارسال از پروکسی شما انجام می‌شود.',
+        recipients: 'شناسهٔ کاربری تلگرام گیرندگان',
+        recipientPlaceholder: 'مثال 123456789',
+        addRecipient: 'افزودن',
+        noRecipients: 'هنوز گیرنده‌ای تنظیم نشده است.',
+        bandwidthThreshold: 'آستانهٔ هشدار پهنای باند (%)',
+        creditThreshold: 'آستانهٔ هشدار کردیت (%)',
+        thresholdHint:
+          'وقتی مصرف به این درصد از سهمیهٔ مجاز برسد یا از آن بیشتر شود، هشدار ارسال می‌شود. پلن رایگان از کردیت و سایر پلن‌ها از پهنای باند استفاده می‌کنند.',
+        save: 'ذخیرهٔ تنظیمات تلگرام',
+        saved: 'تنظیمات تلگرام ذخیره شد',
+        loadError: 'بارگذاری تنظیمات تلگرام ناموفق بود',
+        saveError: 'ذخیرهٔ تنظیمات تلگرام ناموفق بود',
+      },
+      logs: {
+        empty: 'هنوز لاگی ثبت نشده است.',
+        loadError: 'بارگذاری لاگ‌ها ناموفق بود',
+        colTime: 'زمان ارسال',
+        colStatus: 'وضعیت',
+        colAccount: 'اکانت',
+        colRecipients: 'گیرندگان',
+        colMessage: 'متن پیام',
+        status: {
+          PENDING: 'در انتظار',
+          SENT: 'ارسال شد',
+          FAILED: 'ناموفق',
+          SKIPPED: 'رد شد',
+        },
       },
     },
     profile: {

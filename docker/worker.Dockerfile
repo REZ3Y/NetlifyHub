@@ -15,6 +15,8 @@ RUN pnpm install
 COPY . .
 RUN pnpm --filter @netlifyhub/shared build
 RUN pnpm --filter @netlifyhub/netlify-client build
+RUN pnpm --filter @netlifyhub/api exec prisma generate
+RUN pnpm --filter @netlifyhub/api build
 RUN pnpm --filter @netlifyhub/worker build
 
 FROM base AS runner

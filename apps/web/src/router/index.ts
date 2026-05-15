@@ -51,6 +51,12 @@ export const router = createRouter({
           name: 'deployArtifacts',
           component: () => import('@/views/DeployArtifactsView.vue'),
         },
+        {
+          path: 'telegram-notifications',
+          name: 'telegramNotifications',
+          component: () => import('@/views/TelegramNotificationsView.vue'),
+          meta: { requiresAdmin: true },
+        },
         /** Must stay last: unknown paths under `/` fall through here (avoids root-level `/:pathMatch` stealing nested routes). */
         {
           path: ':pathMatch(.*)*',
@@ -74,6 +80,9 @@ router.beforeEach(async (to) => {
   }
   if (!auth.user) {
     return { name: 'login', query: { redirect: to.fullPath } };
+  }
+  if (to.meta.requiresAdmin && auth.user.role !== 'ADMIN') {
+    return { name: 'dashboard' };
   }
   return true;
 });

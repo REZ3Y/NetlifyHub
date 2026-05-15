@@ -256,7 +256,7 @@ function renderIcon(icon: typeof EyeOutline) {
                   <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyCreatedAt) }}</td>
                   <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyLastLogin) }}</td>
                   <td class="col-actions">
-                    <n-space :size="4" justify="end" :wrap="false">
+                    <n-space :size="4" justify="center" :wrap="false">
                       <n-tooltip trigger="hover">
                         <template #trigger>
                           <n-button
@@ -406,7 +406,7 @@ function renderIcon(icon: typeof EyeOutline) {
 .accounts-table th,
 .accounts-table td {
   padding: 12px 16px;
-  text-align: start;
+  text-align: center;
   border-bottom: 1px solid var(--n-divider-color);
   vertical-align: middle;
 }
@@ -420,6 +420,12 @@ function renderIcon(icon: typeof EyeOutline) {
 }
 .col-quota {
   min-width: 140px;
+}
+.col-quota :deep(.quota-meter) {
+  margin-inline: auto;
+}
+.col-plan :deep(.n-tag) {
+  justify-content: center;
 }
 
 .col-actions {

@@ -8,6 +8,7 @@ import {
   GridOutline,
   ListOutline,
   LogOutOutline,
+  NotificationsOutline,
   SettingsOutline,
   PersonAddOutline,
 } from '@vicons/ionicons5';
@@ -29,36 +30,47 @@ function renderIcon(icon: typeof GridOutline) {
   return () => h(NIcon, null, { default: () => h(icon) });
 }
 
-const menuOptions = computed(() => [
-  {
-    label: t('nav.dashboard'),
-    key: 'dashboard',
-    icon: renderIcon(GridOutline),
-  },
-  {
-    label: t('nav.netlifyAccountsList'),
-    key: 'netlifyAccountsList',
-    icon: renderIcon(ListOutline),
-  },
-  {
-    label: t('nav.registerNetlifyAccount'),
-    key: 'registerNetlifyAccount',
-    icon: renderIcon(PersonAddOutline),
-  },
-  {
-    label: t('nav.deployArtifacts'),
-    key: 'deployArtifacts',
-    icon: renderIcon(DocumentOutline),
-  },
-  {
+const menuOptions = computed(() => {
+  const items = [
+    {
+      label: t('nav.dashboard'),
+      key: 'dashboard',
+      icon: renderIcon(GridOutline),
+    },
+    {
+      label: t('nav.netlifyAccountsList'),
+      key: 'netlifyAccountsList',
+      icon: renderIcon(ListOutline),
+    },
+    {
+      label: t('nav.registerNetlifyAccount'),
+      key: 'registerNetlifyAccount',
+      icon: renderIcon(PersonAddOutline),
+    },
+    {
+      label: t('nav.deployArtifacts'),
+      key: 'deployArtifacts',
+      icon: renderIcon(DocumentOutline),
+    },
+  ];
+  if (auth.user?.role === 'ADMIN') {
+    items.push({
+      label: t('nav.telegramNotifications'),
+      key: 'telegramNotifications',
+      icon: renderIcon(NotificationsOutline),
+    });
+  }
+  items.push({
     label: t('nav.settings'),
     key: 'settings',
     icon: renderIcon(SettingsOutline),
-  },
-]);
+  });
+  return items;
+});
 
 const activeKey = computed(() => {
   if (route.name === 'settings') return 'settings';
+  if (route.name === 'telegramNotifications') return 'telegramNotifications';
   if (route.name === 'deployArtifacts') return 'deployArtifacts';
   if (route.name === 'registerNetlifyAccount') return 'registerNetlifyAccount';
   if (
@@ -77,6 +89,7 @@ const pathByMenuKey: Record<string, string> = {
   netlifyAccountsList: '/netlify-accounts',
   registerNetlifyAccount: '/netlify-accounts/register',
   deployArtifacts: '/deploy-files',
+  telegramNotifications: '/telegram-notifications',
 };
 
 function onMenuSelect(key: string) {
