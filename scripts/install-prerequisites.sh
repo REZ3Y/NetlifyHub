@@ -306,7 +306,8 @@ _patch_env_database_url() {
   local port="$1"
   local root="${NETLIFYHUB_INSTALL_ROOT:-$(pwd)}"
   local env_file="${root}/.env"
-  local url="postgresql://netlifyhub:netlifyhub@localhost:${port}/netlifyhub?schema=public"
+  # Use 127.0.0.1 (not localhost) so Prisma/psql match pg_hba host rules consistently.
+  local url="postgresql://netlifyhub:netlifyhub@127.0.0.1:${port}/netlifyhub?schema=public"
 
   if [[ ! -f "$env_file" ]]; then
     return 1
@@ -368,35 +369,96 @@ _normalize_database_url_port() {
   _patch_env_database_url "$desired_port"
 }
 
+_run_psql_as_postgres() {
+  if [[ "$(id -u)" -eq 0 ]]; then
+    su - postgres -c "psql $*"
+  else
+    sudo -u postgres psql "$@"
+  fi
+}
+
 _ensure_postgres_role_and_db() {
   local pg_user=netlifyhub
   local pg_pass=netlifyhub
   local pg_db=netlifyhub
 
-  if ! _command_exists psql && _command_exists sudo; then
-    if sudo -u postgres psql -tAc "SELECT 1" >/dev/null 2>&1; then
-      :
-    else
-      _log_err "Cannot run psql as postgres user."
-      return 1
-    fi
+  if ! _run_psql_as_postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+    _log_err "Cannot run psql as the postgres system user."
+    return 1
   fi
 
-  run_psql() {
-    if [[ "$(id -u)" -eq 0 ]]; then
-      su - postgres -c "psql $*"
-    else
-      sudo -u postgres psql "$@"
-    fi
-  }
+  if _run_psql_as_postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${pg_user}'" | grep -q 1; then
+    _run_psql_as_postgres -c "ALTER USER ${pg_user} WITH PASSWORD '${pg_pass}' LOGIN;"
+  else
+    _run_psql_as_postgres -c "CREATE USER ${pg_user} WITH PASSWORD '${pg_pass}' LOGIN;"
+  fi
 
-  if ! run_psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${pg_user}'" | grep -q 1; then
-    run_psql -c "CREATE USER ${pg_user} WITH PASSWORD '${pg_pass}';"
+  if ! _run_psql_as_postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${pg_db}'" | grep -q 1; then
+    _run_psql_as_postgres -c "CREATE DATABASE ${pg_db} OWNER ${pg_user};"
+  else
+    _run_psql_as_postgres -c "ALTER DATABASE ${pg_db} OWNER TO ${pg_user};" >/dev/null 2>&1 || true
   fi
-  if ! run_psql -tAc "SELECT 1 FROM pg_database WHERE datname='${pg_db}'" | grep -q 1; then
-    run_psql -c "CREATE DATABASE ${pg_db} OWNER ${pg_user};"
+
+  _run_psql_as_postgres -d "${pg_db}" -c "GRANT ALL ON SCHEMA public TO ${pg_user};" >/dev/null 2>&1 || true
+  _run_psql_as_postgres -d "${pg_db}" -c "ALTER SCHEMA public OWNER TO ${pg_user};" >/dev/null 2>&1 || true
+
+  _configure_postgres_password_auth || return 1
+}
+
+_configure_postgres_password_auth() {
+  local hba
+  hba="$(_run_psql_as_postgres -tAc 'SHOW hba_file;' | tr -d '[:space:]')"
+  if [[ -z "$hba" || ! -f "$hba" ]]; then
+    _log_warn "Could not locate pg_hba.conf; skipping HBA tweak."
+    return 0
   fi
-  run_psql -d "${pg_db}" -c "GRANT ALL ON SCHEMA public TO ${pg_user};" >/dev/null 2>&1 || true
+
+  if ! grep -qE '^[[:space:]]*host[[:space:]]+all[[:space:]]+all[[:space:]]+127\.0\.0\.1/32[[:space:]]+scram-sha-256' "$hba"; then
+    _log_info "Allowing password auth from 127.0.0.1 in pg_hba.conf..."
+    echo 'host all all 127.0.0.1/32 scram-sha-256' >>"$hba"
+  fi
+  if ! grep -qE '^[[:space:]]*host[[:space:]]+all[[:space:]]+all[[:space:]]+::1/128[[:space:]]+scram-sha-256' "$hba"; then
+    echo 'host all all ::1/128 scram-sha-256' >>"$hba"
+  fi
+
+  if _command_exists systemctl; then
+    _run_as_root systemctl reload postgresql 2>/dev/null \
+      || _run_as_root systemctl reload postgresql@* 2>/dev/null \
+      || true
+  fi
+  if _command_exists service; then
+    _run_as_root service postgresql reload 2>/dev/null || true
+  fi
+  sleep 1
+}
+
+_verify_postgres_credentials() {
+  local port="${1:-5432}"
+  local pg_user=netlifyhub
+  local pg_pass=netlifyhub
+  local pg_db=netlifyhub
+
+  if ! _command_exists psql; then
+    if _command_exists apt-get; then
+      _run_as_root apt-get install -y postgresql-client 2>/dev/null || true
+    fi
+  fi
+  if ! _command_exists psql; then
+    _log_warn "psql client not found; skipping login verification."
+    return 0
+  fi
+
+  if PGPASSWORD="$pg_pass" psql -h 127.0.0.1 -p "$port" -U "$pg_user" -d "$pg_db" -tAc 'SELECT 1' 2>/dev/null | grep -q 1; then
+    return 0
+  fi
+  return 1
+}
+
+_repair_postgres_credentials() {
+  local port="${1:-5432}"
+  _log_warn "PostgreSQL login failed for netlifyhub@127.0.0.1:${port}; repairing role and pg_hba..."
+  _ensure_postgres_role_and_db || return 1
+  _verify_postgres_credentials "$port"
 }
 
 _start_systemd_service() {
@@ -480,6 +542,16 @@ _ensure_docker_datastores() {
   _wait_for_datastores
 }
 
+_try_configure_postgres_app_role() {
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    return 0
+  fi
+  if _run_psql_as_postgres -tAc "SELECT 1" >/dev/null 2>&1; then
+    _log_info "Configuring PostgreSQL role/database netlifyhub..."
+    _ensure_postgres_role_and_db
+  fi
+}
+
 # Call after repo-root `.env` exists (install.sh creates it first).
 netlifyhub_ensure_datastores() {
   if [[ "${NETLIFYHUB_SKIP_DATASTORES:-}" == "1" ]]; then
@@ -492,6 +564,7 @@ netlifyhub_ensure_datastores() {
   if [[ -n "${pg_port:-}" ]] && _port_open 6379; then
     _patch_env_database_url "$pg_port"
     _normalize_database_url_port
+    _try_configure_postgres_app_role || true
     _log_info "PostgreSQL (:${pg_port}) and Redis (:6379) already reachable."
     return 0
   fi
@@ -526,7 +599,7 @@ netlifyhub_verify_database_ready() {
   }
 
   if ! _port_open "$pg_port"; then
-    _log_err "PostgreSQL is not reachable on localhost:${pg_port} (from DATABASE_URL)."
+    _log_err "PostgreSQL is not reachable on 127.0.0.1:${pg_port} (from DATABASE_URL)."
     _log_err "Start Postgres or re-run the installer to auto-install it."
     exit 1
   fi
@@ -536,8 +609,18 @@ netlifyhub_verify_database_ready() {
     exit 1
   fi
 
+  if ! _verify_postgres_credentials "$pg_port"; then
+    if ! _repair_postgres_credentials "$pg_port"; then
+      _log_err "PostgreSQL credentials in DATABASE_URL are invalid (user: netlifyhub)."
+      _log_err "Fix manually, for example:"
+      _log_err "  sudo -u postgres psql -c \"ALTER USER netlifyhub WITH PASSWORD 'netlifyhub';\""
+      _log_err "Or set DATABASE_URL in .env to your existing Postgres user/password."
+      exit 1
+    fi
+  fi
+
   _sync_env_files
-  _log_info "Database port ${pg_port} and Redis are reachable."
+  _log_info "PostgreSQL login OK on 127.0.0.1:${pg_port}; Redis is reachable."
 }
 
 # Public entry — call from install.sh (after cd to repo root).
