@@ -1,15 +1,24 @@
 /**
  * Load repo-root `.env`, sync for Prisma CLI, then run a child command with that env.
+ *
+ * When imported from other scripts (seed, create-admin, …), only loads `.env` — never exits.
+ * When run as `tsx ensure-root-env.ts -- <cmd>`, runs `<cmd>` with that env.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const envPath = path.join(root, '.env');
 const apiEnvPath = path.join(root, 'apps/api/.env');
+
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return import.meta.url === pathToFileURL(path.resolve(entry)).href;
+}
 
 const loaded = config({ path: envPath, override: true });
 
@@ -39,39 +48,43 @@ function logDatabaseUrlTarget(): void {
   console.log(`[ensure-root-env] DATABASE_URL target: ${hostPort}`);
 }
 
-const sepIdx = process.argv.indexOf('--');
-if (sepIdx === -1) {
+if (!isMainModule()) {
+  // Imported for side effect (load .env only).
+} else {
+  const sepIdx = process.argv.indexOf('--');
+  if (sepIdx === -1) {
+    if (!process.env.DATABASE_URL?.trim()) {
+      reportMissingDatabaseUrl();
+    }
+    process.exit(0);
+  }
+
   if (!process.env.DATABASE_URL?.trim()) {
     reportMissingDatabaseUrl();
+    process.exit(1);
   }
-  process.exit(0);
+
+  syncApiEnvFromRoot();
+  logDatabaseUrlTarget();
+
+  const cmd = process.argv[sepIdx + 1];
+  const args = process.argv.slice(sepIdx + 2);
+
+  if (!cmd) {
+    process.exit(0);
+  }
+
+  const child = spawnSync(cmd, args, {
+    stdio: 'inherit',
+    env: process.env,
+    cwd: root,
+    shell: process.platform === 'win32',
+  });
+
+  if (child.error) {
+    console.error('[ensure-root-env]', child.error.message);
+    process.exit(1);
+  }
+
+  process.exit(child.status === null ? 1 : child.status);
 }
-
-if (!process.env.DATABASE_URL?.trim()) {
-  reportMissingDatabaseUrl();
-  process.exit(1);
-}
-
-syncApiEnvFromRoot();
-logDatabaseUrlTarget();
-
-const cmd = process.argv[sepIdx + 1];
-const args = process.argv.slice(sepIdx + 2);
-
-if (!cmd) {
-  process.exit(0);
-}
-
-const child = spawnSync(cmd, args, {
-  stdio: 'inherit',
-  env: process.env,
-  cwd: root,
-  shell: process.platform === 'win32',
-});
-
-if (child.error) {
-  console.error('[ensure-root-env]', child.error.message);
-  process.exit(1);
-}
-
-process.exit(child.status === null ? 1 : child.status);

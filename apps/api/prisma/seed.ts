@@ -1,13 +1,15 @@
-import '../scripts/ensure-root-env.js';
+import { loadRootEnv } from '@netlifyhub/shared';
 import bcrypt from 'bcryptjs';
 import { PrismaClient, Role } from '@prisma/client';
+
+loadRootEnv();
 
 const prisma = new PrismaClient();
 
 async function main() {
   const username = process.env.SEED_ADMIN_USERNAME?.trim();
   const password = process.env.SEED_ADMIN_PASSWORD;
-  if (!username || !password) {
+  if (!username || password === undefined || password === '') {
     console.log('[seed] Skipped (set SEED_ADMIN_USERNAME and SEED_ADMIN_PASSWORD to bootstrap).');
     return;
   }

@@ -70,14 +70,7 @@ async function submit() {
             @keyup.enter="submit"
           />
         </n-form-item>
-        <n-button
-          type="primary"
-          block
-          size="large"
-          :loading="loading"
-          attr-type="submit"
-          @click="submit"
-        >
+        <n-button type="primary" block size="large" :loading="loading" attr-type="submit">
           {{ t('auth.login') }}
         </n-button>
       </n-form>

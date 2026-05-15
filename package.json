@@ -22,6 +22,7 @@
     "db:generate": "tsx apps/api/scripts/ensure-root-env.ts -- pnpm --filter @netlifyhub/api exec prisma generate",
     "db:migrate": "tsx apps/api/scripts/ensure-root-env.ts -- pnpm --filter @netlifyhub/api exec prisma migrate deploy",
     "db:studio": "tsx apps/api/scripts/ensure-root-env.ts -- pnpm --filter @netlifyhub/api exec prisma studio",
+    "reset-admin-from-env": "pnpm --filter @netlifyhub/api run reset-admin-from-env",
     "bootstrap:admin": "pnpm db:migrate && pnpm --filter @netlifyhub/api run create-admin"
   },
   "lint-staged": {

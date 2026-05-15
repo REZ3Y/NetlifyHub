@@ -21,7 +21,8 @@
     "lint": "eslint src",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "create-admin": "tsx scripts/create-admin.ts"
+    "create-admin": "tsx scripts/create-admin.ts",
+    "reset-admin-from-env": "tsx scripts/reset-seed-admin.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

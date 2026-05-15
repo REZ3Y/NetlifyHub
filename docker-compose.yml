@@ -48,6 +48,8 @@ services:
       BCRYPT_ROUNDS: ${BCRYPT_ROUNDS:-12}
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-local-dev-token-encryption-key-min-32chars}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
       STATIC_WEB_ROOT: /app/apps/web/dist
       UPLOAD_STORAGE_PATH: /app/data/uploads
     ports:
