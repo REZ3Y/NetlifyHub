@@ -108,6 +108,13 @@ export const messages = {
       usageLoadError: 'Could not load usage from Netlify',
       usageDisabled: 'Enable this account in the panel to load live usage.',
       usageOtherTeams: 'This token also has access to: {teams}. Showing the first team only.',
+      sitesTitle: 'Sites',
+      sitesEmpty: 'No sites found for this team.',
+      sitesLoadError: 'Could not load sites from Netlify',
+      sitesDisabled: 'Enable this account in the panel to load sites.',
+      sitesOwnedBy: 'Owned by {name}',
+      sitesPublishedAt: 'Published at {at} ({relative})',
+      sitesOpenAdmin: 'Open in Netlify',
     },
     netlifyAccountEdit: {
       title: 'Edit linked account',
@@ -290,6 +297,13 @@ export const messages = {
       usageDisabled: 'برای نمایش مصرف زنده، این اکانت را در پنل فعال کنید.',
       usageOtherTeams:
         'این توکن به تیم‌های دیگر هم دسترسی دارد: {teams}. فقط اولین تیم نمایش داده می‌شود.',
+      sitesTitle: 'سایت‌ها',
+      sitesEmpty: 'سایتی برای این تیم یافت نشد.',
+      sitesLoadError: 'بارگذاری سایت‌ها از نتلیفای ناموفق بود',
+      sitesDisabled: 'برای نمایش سایت‌ها، این اکانت را در پنل فعال کنید.',
+      sitesOwnedBy: 'متعلق به {name}',
+      sitesPublishedAt: 'منتشر شده در {at} ({relative})',
+      sitesOpenAdmin: 'باز کردن در نتلیفای',
     },
     netlifyAccountEdit: {
       title: 'ویرایش اکانت متصل',

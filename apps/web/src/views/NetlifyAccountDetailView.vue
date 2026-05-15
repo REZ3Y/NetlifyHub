@@ -9,6 +9,8 @@ import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { LinkedNetlifyAccount } from '@/types/netlify-linked-account';
 import type { NetlifyAccountUsage } from '@/types/netlify-account-usage';
+import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
+import NetlifyAccountSitesList from '@/components/NetlifyAccountSitesList.vue';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -21,12 +23,36 @@ const account = ref<LinkedNetlifyAccount | null>(null);
 const usageLoading = ref(false);
 const usage = ref<NetlifyAccountUsage | null>(null);
 const usageError = ref(false);
+const sitesLoading = ref(false);
+const sites = ref<NetlifyLinkedSite[]>([]);
+const sitesTeamName = ref('');
+const sitesError = ref(false);
 
 function formatNetlifyInstant(value: string | null): string {
   if (!value) return '—';
   const asDate = new Date(value);
   if (!Number.isNaN(asDate.getTime())) return formatDateTime(asDate);
   return value;
+}
+
+async function loadSites(id: string, enabled: boolean) {
+  sites.value = [];
+  sitesTeamName.value = '';
+  sitesError.value = false;
+  if (!enabled) return;
+  sitesLoading.value = true;
+  try {
+    const { data } = await http.get<{ teamName: string; sites: NetlifyLinkedSite[] }>(
+      `/v1/netlify-accounts/${id}/sites`
+    );
+    sites.value = data.sites;
+    sitesTeamName.value = data.teamName;
+  } catch {
+    sitesError.value = true;
+    message.error(t('netlifyAccountDetail.sitesLoadError'));
+  } finally {
+    sitesLoading.value = false;
+  }
 }
 
 async function loadUsage(id: string, enabled: boolean) {
@@ -52,12 +78,16 @@ async function load(id: string) {
   account.value = null;
   usage.value = null;
   usageError.value = false;
+  sites.value = [];
+  sitesTeamName.value = '';
+  sitesError.value = false;
   try {
     const { data } = await http.get<{ account: LinkedNetlifyAccount }>(
       `/v1/netlify-accounts/${id}`
     );
     account.value = data.account;
     void loadUsage(id, data.account.enabled);
+    void loadSites(id, data.account.enabled);
   } catch (e) {
     if (isAxiosError(e) && e.response?.status === 404) {
       message.warning(t('netlifyAccountDetail.notFound'));
@@ -163,111 +193,137 @@ const billingPeriodText = computed(() => {
 
     <n-spin :show="loading">
       <template v-if="account">
-        <section class="account-detail-page__section account-detail-page__usage">
-          <n-card class="usage-card" :segmented="{ content: true }">
-            <template #header>
-              <div class="usage-card__header">
-                <div class="usage-card__header-main">
-                  <n-space align="center" :size="8" :wrap="false">
-                    <n-text strong class="usage-card__title">
-                      {{ t('netlifyAccountDetail.usageTitle') }}
+        <div class="account-detail-page__stack">
+          <section class="account-detail-page__section account-detail-page__usage">
+            <n-card class="usage-card" :segmented="{ content: true }">
+              <template #header>
+                <div class="usage-card__header">
+                  <div class="usage-card__header-main">
+                    <n-space align="center" :size="8" :wrap="false">
+                      <n-text strong class="usage-card__title">
+                        {{ t('netlifyAccountDetail.usageTitle') }}
+                      </n-text>
+                      <n-tag v-if="usage?.planName" type="success" size="small" round>
+                        {{ usage.planName }}
+                      </n-tag>
+                    </n-space>
+                    <n-text v-if="usage" depth="3" class="usage-card__subtitle">
+                      {{ t('netlifyAccountDetail.usageSubtitle', { team: usage.teamSlug }) }}
                     </n-text>
-                    <n-tag v-if="usage?.planName" type="success" size="small" round>
-                      {{ usage.planName }}
-                    </n-tag>
-                  </n-space>
-                  <n-text v-if="usage" depth="3" class="usage-card__subtitle">
-                    {{ t('netlifyAccountDetail.usageSubtitle', { team: usage.teamSlug }) }}
+                  </div>
+                  <n-text v-if="billingPeriodText" depth="3" class="usage-card__period">
+                    {{ billingPeriodText }}
                   </n-text>
                 </div>
-                <n-text v-if="billingPeriodText" depth="3" class="usage-card__period">
-                  {{ billingPeriodText }}
-                </n-text>
-              </div>
-            </template>
+              </template>
 
-            <template v-if="!account.enabled">
-              <n-text depth="3">{{ t('netlifyAccountDetail.usageDisabled') }}</n-text>
-            </template>
-            <template v-else>
-              <n-spin :show="usageLoading">
-                <template v-if="usage">
-                  <div class="usage-metrics">
-                    <n-card size="small" embedded class="usage-metrics__item">
-                      <n-statistic :label="t('netlifyAccountDetail.usageBandwidth')">
-                        <template #default>
-                          <template v-if="usage.bandwidth">
-                            {{ usage.bandwidth.usedLabel }} / {{ usage.bandwidth.includedLabel }}
+              <template v-if="!account.enabled">
+                <n-text depth="3">{{ t('netlifyAccountDetail.usageDisabled') }}</n-text>
+              </template>
+              <template v-else>
+                <n-spin :show="usageLoading">
+                  <template v-if="usage">
+                    <div class="usage-metrics">
+                      <n-card size="small" embedded class="usage-metrics__item">
+                        <n-statistic :label="t('netlifyAccountDetail.usageBandwidth')">
+                          <template #default>
+                            <template v-if="usage.bandwidth">
+                              {{ usage.bandwidth.usedLabel }} / {{ usage.bandwidth.includedLabel }}
+                            </template>
+                            <template v-else>—</template>
                           </template>
-                          <template v-else>—</template>
-                        </template>
-                      </n-statistic>
-                    </n-card>
-                    <n-card size="small" embedded class="usage-metrics__item">
-                      <n-statistic :label="t('netlifyAccountDetail.usageBuildMinutes')">
-                        <template #default>
-                          {{ usage.buildMinutes.usedLabel }} /
-                          {{ usage.buildMinutes.includedLabel }}
-                        </template>
-                      </n-statistic>
-                    </n-card>
-                    <n-card size="small" embedded class="usage-metrics__item">
-                      <n-statistic :label="t('netlifyAccountDetail.usageConcurrentBuilds')">
-                        <template #default>{{ usage.concurrentBuilds.label }}</template>
-                      </n-statistic>
-                    </n-card>
-                    <n-card size="small" embedded class="usage-metrics__item">
-                      <n-statistic :label="t('netlifyAccountDetail.usageTeamMembers')">
-                        <template #default>{{ usage.teamMembers.label }}</template>
-                      </n-statistic>
-                    </n-card>
+                        </n-statistic>
+                      </n-card>
+                      <n-card size="small" embedded class="usage-metrics__item">
+                        <n-statistic :label="t('netlifyAccountDetail.usageBuildMinutes')">
+                          <template #default>
+                            {{ usage.buildMinutes.usedLabel }} /
+                            {{ usage.buildMinutes.includedLabel }}
+                          </template>
+                        </n-statistic>
+                      </n-card>
+                      <n-card size="small" embedded class="usage-metrics__item">
+                        <n-statistic :label="t('netlifyAccountDetail.usageConcurrentBuilds')">
+                          <template #default>{{ usage.concurrentBuilds.label }}</template>
+                        </n-statistic>
+                      </n-card>
+                      <n-card size="small" embedded class="usage-metrics__item">
+                        <n-statistic :label="t('netlifyAccountDetail.usageTeamMembers')">
+                          <template #default>{{ usage.teamMembers.label }}</template>
+                        </n-statistic>
+                      </n-card>
+                    </div>
+                  </template>
+                  <n-text v-else-if="usageError" depth="3">
+                    {{ t('netlifyAccountDetail.usageLoadError') }}
+                  </n-text>
+                </n-spin>
+              </template>
+            </n-card>
+          </section>
+
+          <div class="account-detail-page__columns">
+            <section class="account-detail-page__section account-detail-page__details">
+              <n-card class="details-card" :segmented="{ content: true }">
+                <template #header>
+                  <div class="details-card__header">
+                    <div class="details-card__header-text">
+                      <n-h2 style="margin: 0 0 4px">{{ t('netlifyAccountDetail.title') }}</n-h2>
+                      <n-p depth="3" style="margin: 0">{{
+                        t('netlifyAccountDetail.subtitle')
+                      }}</n-p>
+                    </div>
+                    <n-button type="primary" @click="goEdit">
+                      {{ t('netlifyAccountDetail.edit') }}
+                    </n-button>
                   </div>
                 </template>
-                <n-text v-else-if="usageError" depth="3">
-                  {{ t('netlifyAccountDetail.usageLoadError') }}
-                </n-text>
-              </n-spin>
-            </template>
-          </n-card>
-        </section>
 
-        <section class="account-detail-page__section account-detail-page__details">
-          <n-card class="details-card" :segmented="{ content: true }">
-            <template #header>
-              <div class="details-card__header">
-                <div class="details-card__header-text">
-                  <n-h2 style="margin: 0 0 4px">{{ t('netlifyAccountDetail.title') }}</n-h2>
-                  <n-p depth="3" style="margin: 0">{{ t('netlifyAccountDetail.subtitle') }}</n-p>
-                </div>
-                <n-button type="primary" @click="goEdit">
-                  {{ t('netlifyAccountDetail.edit') }}
-                </n-button>
-              </div>
-            </template>
+                <n-table bordered :single-line="false" size="small" class="detail-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" class="detail-table__th-label">
+                        {{ t('netlifyAccounts.summaryColumnLabel') }}
+                      </th>
+                      <th scope="col">{{ t('netlifyAccounts.summaryColumnValue') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in summaryRows" :key="row.key">
+                      <td class="detail-table__td-label">{{ row.label }}</td>
+                      <td>
+                        <n-text v-if="row.breakAll" style="word-break: break-all">{{
+                          row.value
+                        }}</n-text>
+                        <template v-else>{{ row.value }}</template>
+                      </td>
+                    </tr>
+                  </tbody>
+                </n-table>
+              </n-card>
+            </section>
 
-            <n-table bordered :single-line="false" size="small" class="detail-table">
-              <thead>
-                <tr>
-                  <th scope="col" class="detail-table__th-label">
-                    {{ t('netlifyAccounts.summaryColumnLabel') }}
-                  </th>
-                  <th scope="col">{{ t('netlifyAccounts.summaryColumnValue') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in summaryRows" :key="row.key">
-                  <td class="detail-table__td-label">{{ row.label }}</td>
-                  <td>
-                    <n-text v-if="row.breakAll" style="word-break: break-all">{{
-                      row.value
-                    }}</n-text>
-                    <template v-else>{{ row.value }}</template>
-                  </td>
-                </tr>
-              </tbody>
-            </n-table>
-          </n-card>
-        </section>
+            <section class="account-detail-page__section account-detail-page__sites">
+              <template v-if="!account.enabled">
+                <n-card class="sites-card" :title="t('netlifyAccountDetail.sitesTitle')">
+                  <n-text depth="3">{{ t('netlifyAccountDetail.sitesDisabled') }}</n-text>
+                </n-card>
+              </template>
+              <template v-else-if="sitesError">
+                <n-card class="sites-card" :title="t('netlifyAccountDetail.sitesTitle')">
+                  <n-text depth="3">{{ t('netlifyAccountDetail.sitesLoadError') }}</n-text>
+                </n-card>
+              </template>
+              <NetlifyAccountSitesList
+                v-else
+                :linked-account-id="account.id"
+                :sites="sites"
+                :team-name="sitesTeamName"
+                :loading="sitesLoading"
+              />
+            </section>
+          </div>
+        </div>
       </template>
     </n-spin>
   </div>
@@ -279,13 +335,29 @@ const billingPeriodText = computed(() => {
   max-width: 100%;
   display: flex;
   flex-direction: column;
+  gap: 24px;
+}
+
+.account-detail-page__stack {
+  display: flex;
+  flex-direction: column;
   gap: 32px;
+  width: 100%;
+}
+
+.account-detail-page__columns {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  width: 100%;
 }
 
 .account-detail-page__section {
   width: 100%;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .usage-card {
@@ -345,7 +417,13 @@ const billingPeriodText = computed(() => {
 }
 
 .account-detail-page__details {
-  max-width: 720px;
+  max-width: none;
+}
+
+@media (max-width: 960px) {
+  .account-detail-page__columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .details-card {

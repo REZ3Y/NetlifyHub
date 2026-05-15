@@ -22,6 +22,12 @@ export type NetlifySite = Record<string, unknown> & {
   admin_url?: string;
   account_slug?: string;
   account_id?: string;
+  account_name?: string;
+  custom_domain?: string;
+  screenshot_url?: string;
+  build_settings?: Record<string, unknown>;
+  deploy_hook?: Record<string, unknown>;
+  published_deploy?: Record<string, unknown>;
   state?: string;
   created_at?: string;
   updated_at?: string;

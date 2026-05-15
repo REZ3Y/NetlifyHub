@@ -3,6 +3,7 @@ import { createNetlifyClient } from '../integrations/netlify/index.js';
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import { createNetlifyFetchForUser } from '../lib/netlify-proxied-fetch.js';
 import { encryptSecret } from '../lib/token-crypto.js';
+import { invalidateLinkedNetlifyAccountSitesCache } from './netlify-account-sites.service.js';
 import { invalidateLinkedNetlifyAccountUsageCache } from './netlify-account-usage.service.js';
 import type { Env } from '../config/env.js';
 import { z } from 'zod';
@@ -272,6 +273,7 @@ export async function updateLinkedNetlifyAccount(
       select: accountSelect,
     });
     invalidateLinkedNetlifyAccountUsageCache(userId, id);
+    invalidateLinkedNetlifyAccountSitesCache(userId, id);
     return { ok: true, account: toDto(row) };
   } catch (e: unknown) {
     const code =

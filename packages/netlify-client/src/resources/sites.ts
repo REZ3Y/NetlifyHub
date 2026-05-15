@@ -12,6 +12,24 @@ export type ListSitesParams = {
 export class NetlifySitesResource {
   constructor(private readonly exec: NetlifyRequestExecutor) {}
 
+  /** `GET /{account_slug}/sites` */
+  async listForAccount(
+    accountSlug: string,
+    params?: { page?: number; per_page?: number }
+  ): Promise<PaginatedResult<NetlifySite[]>> {
+    const { data, link } = await this.exec.requestJson<NetlifySite[]>(
+      'GET',
+      `${encodeURIComponent(accountSlug)}/sites`,
+      {
+        query: {
+          page: params?.page,
+          per_page: params?.per_page,
+        },
+      }
+    );
+    return { data, link };
+  }
+
   /** `GET /sites` */
   async list(params?: ListSitesParams): Promise<PaginatedResult<NetlifySite[]>> {
     const { data, link } = await this.exec.requestJson<NetlifySite[]>('GET', 'sites', {

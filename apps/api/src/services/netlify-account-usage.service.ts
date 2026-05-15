@@ -4,7 +4,7 @@ import type { Env } from '../config/env.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 const GIB = 1024 ** 3;
-const USAGE_CACHE_TTL_MS = 5 * 60 * 1000;
+import { NETLIFY_LINKED_CACHE_TTL_MS } from '../lib/netlify-cache-constants.js';
 
 type UsageCacheEntry = {
   usage: NetlifyAccountUsageDto;
@@ -247,7 +247,7 @@ export async function fetchLinkedNetlifyAccountUsage(
 
   usageCache.set(cacheKey, {
     usage,
-    expiresAt: Date.now() + USAGE_CACHE_TTL_MS,
+    expiresAt: Date.now() + NETLIFY_LINKED_CACHE_TTL_MS,
   });
 
   return { ok: true, usage };

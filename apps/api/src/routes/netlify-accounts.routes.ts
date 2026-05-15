@@ -10,6 +10,10 @@ import {
   updateLinkedNetlifyAccount,
 } from '../services/netlify-linked-account.service.js';
 import { fetchLinkedNetlifyAccountUsage } from '../services/netlify-account-usage.service.js';
+import {
+  fetchLinkedNetlifyAccountSites,
+  streamLinkedNetlifySiteThumbnail,
+} from '../services/netlify-account-sites.service.js';
 
 const createBody = z.object({
   title: z.string().max(128).optional(),
@@ -17,6 +21,11 @@ const createBody = z.object({
 });
 
 const idParams = z.object({ id: z.string().min(1) });
+
+const siteIdParams = z.object({
+  id: z.string().min(1),
+  siteId: z.string().min(1),
+});
 
 const listQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -111,6 +120,47 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
     }
     return { account };
+  });
+
+  app.get('/:id/sites/:siteId/thumbnail', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = siteIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    await streamLinkedNetlifySiteThumbnail(app.config, user.id, p.data.id, p.data.siteId, reply);
+  });
+
+  app.get('/:id/sites', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = idParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await fetchLinkedNetlifyAccountSites(app.config, user.id, p.data.id);
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return { teamName: result.teamName, sites: result.sites };
   });
 
   app.get('/:id/usage', async (request, reply) => {
