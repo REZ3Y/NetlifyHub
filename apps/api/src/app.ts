@@ -2,6 +2,7 @@ import 'dotenv/config';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 import type { Env } from './config/env.js';
@@ -10,7 +11,9 @@ import { authRoutes } from './routes/auth.routes.js';
 import { healthRoutes } from './routes/health.routes.js';
 import { meRoutes } from './routes/me.routes.js';
 import { netlifyAccountsRoutes } from './routes/netlify-accounts.routes.js';
+import { deployArtifactsRoutes } from './routes/deploy-artifacts.routes.js';
 import { registerSpaStatic } from './plugins/spa-static.js';
+import { MAX_DEPLOY_ZIP_BYTES } from './lib/upload-storage.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -42,6 +45,10 @@ export async function buildApp(env: Env) {
 
   await app.register(cookie);
 
+  await app.register(multipart, {
+    limits: { fileSize: MAX_DEPLOY_ZIP_BYTES },
+  });
+
   await app.register(rateLimit, {
     global: true,
     max: 400,
@@ -52,6 +59,7 @@ export async function buildApp(env: Env) {
   await app.register(authRoutes, { prefix: '/v1/auth' });
   await app.register(meRoutes, { prefix: '/v1/me' });
   await app.register(netlifyAccountsRoutes, { prefix: '/v1/netlify-accounts' });
+  await app.register(deployArtifactsRoutes, { prefix: '/v1/deploy-artifacts' });
 
   if (env.STATIC_WEB_ROOT) {
     await registerSpaStatic(app, env.STATIC_WEB_ROOT);

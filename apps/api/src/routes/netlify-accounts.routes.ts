@@ -24,6 +24,13 @@ import {
   saveLinkedNetlifySiteEnvVar,
 } from '../services/netlify-site-env.service.js';
 import { upsertLinkedSitePanelNote } from '../services/netlify-linked-site-note.service.js';
+import {
+  deployLinkedNetlifySiteFromArtifact,
+  deployLinkedNetlifySiteFromZip,
+  fetchLinkedNetlifySiteDeploys,
+  restoreLinkedNetlifySiteDeploy,
+} from '../services/netlify-site-deploy.service.js';
+import type { MultipartFile } from '@fastify/multipart';
 
 const createBody = z.object({
   title: z.string().max(128).optional(),
@@ -35,6 +42,16 @@ const idParams = z.object({ id: z.string().min(1) });
 const siteIdParams = z.object({
   id: z.string().min(1),
   siteId: z.string().min(1),
+});
+
+const deployIdParams = z.object({
+  id: z.string().min(1),
+  siteId: z.string().min(1),
+  deployId: z.string().min(1),
+});
+
+const deployFromArtifactBody = z.object({
+  artifactId: z.string().min(1),
 });
 
 const envKeyParams = z.object({
@@ -306,6 +323,138 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
       p.data.siteId,
       decodeURIComponent(p.data.envKey),
       { triggerRedeploy: q.data.triggerRedeploy }
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return result.result;
+  });
+
+  app.get('/:id/sites/:siteId/deploys', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = siteIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await fetchLinkedNetlifySiteDeploys(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return { deploys: result.deploys };
+  });
+
+  app.post('/:id/sites/:siteId/deploys', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = siteIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const contentType = request.headers['content-type'] ?? '';
+    if (contentType.includes('multipart/form-data')) {
+      let file: MultipartFile | undefined;
+      const parts = request.parts();
+      for await (const part of parts) {
+        if (part.type === 'file' && part.fieldname === 'file') {
+          file = part;
+        } else if (part.type === 'file') {
+          await part.toBuffer();
+        }
+      }
+      if (!file) {
+        return reply.code(400).send({
+          error: 'VALIDATION_ERROR',
+          message: 'Zip file is required.',
+        });
+      }
+      const buf = await file.toBuffer();
+      const result = await deployLinkedNetlifySiteFromZip(
+        app.config,
+        user.id,
+        p.data.id,
+        p.data.siteId,
+        new Uint8Array(buf)
+      );
+      if (!result.ok) {
+        return reply.code(result.status).send({
+          error: result.error,
+          message: result.message,
+        });
+      }
+      return result.result;
+    }
+
+    const body = deployFromArtifactBody.safeParse(request.body);
+    if (!body.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Provide multipart zip file or JSON { artifactId }.',
+        details: body.error.flatten(),
+      });
+    }
+
+    const result = await deployLinkedNetlifySiteFromArtifact(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId,
+      body.data.artifactId
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return result.result;
+  });
+
+  app.post('/:id/sites/:siteId/deploys/:deployId/restore', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = deployIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await restoreLinkedNetlifySiteDeploy(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId,
+      p.data.deployId
     );
     if (!result.ok) {
       return reply.code(result.status).send({

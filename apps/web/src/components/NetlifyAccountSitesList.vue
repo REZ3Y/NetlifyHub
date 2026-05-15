@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   ChevronForwardOutline,
+  ConstructOutline,
   CopyOutline,
   OpenOutline,
   SettingsOutline,
@@ -15,6 +16,7 @@ import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
 import NetlifyAccountSiteObservabilityModal from '@/components/NetlifyAccountSiteObservabilityModal.vue';
 import NetlifyAccountSiteEnvModal from '@/components/NetlifyAccountSiteEnvModal.vue';
+import NetlifyAccountSiteBuildModal from '@/components/NetlifyAccountSiteBuildModal.vue';
 
 const PLACEHOLDER_THUMB = '/site-thumb-404.svg';
 
@@ -33,6 +35,7 @@ const { copy: copyToClipboard } = useClipboard();
 const brokenThumbs = ref<Set<string>>(new Set());
 const observabilityOpen = ref(false);
 const envOpen = ref(false);
+const buildOpen = ref(false);
 const selectedSite = ref<NetlifyLinkedSite | null>(null);
 const noteOverrides = ref<Record<string, string | null>>({});
 const draftNote = ref('');
@@ -94,6 +97,11 @@ function openObservability(site: NetlifyLinkedSite) {
 function openEnv(site: NetlifyLinkedSite) {
   selectedSite.value = site;
   envOpen.value = true;
+}
+
+function openBuild(site: NetlifyLinkedSite) {
+  selectedSite.value = site;
+  buildOpen.value = true;
 }
 
 function panelNote(site: NetlifyLinkedSite): string | null {
@@ -259,6 +267,17 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
               quaternary
               circle
               size="small"
+              :title="t('netlifyAccountDetail.buildTitle')"
+              @click="openBuild(site)"
+            >
+              <template #icon>
+                <n-icon :component="ConstructOutline" />
+              </template>
+            </n-button>
+            <n-button
+              quaternary
+              circle
+              size="small"
               :title="t('netlifyAccountDetail.envTitle')"
               @click="openEnv(site)"
             >
@@ -299,6 +318,11 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
     />
     <NetlifyAccountSiteEnvModal
       v-model:show="envOpen"
+      :linked-account-id="linkedAccountId"
+      :site="selectedSite"
+    />
+    <NetlifyAccountSiteBuildModal
+      v-model:show="buildOpen"
       :linked-account-id="linkedAccountId"
       :site="selectedSite"
     />

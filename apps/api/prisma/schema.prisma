@@ -35,6 +35,7 @@ model User {
   updatedAt DateTime  @updatedAt
   sessions  Session[]
   netlifyLinkedAccounts NetlifyLinkedAccount[]
+  deployArtifacts PanelDeployArtifact[]
 }
 
 model NetlifyLinkedAccount {
@@ -96,4 +97,21 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/** Zip artifacts stored in the panel for manual Netlify deploys. */
+model PanelDeployArtifact {
+  id               String @id @default(cuid())
+  userId           String
+  user             User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String @db.VarChar(128)
+  originalFilename String @db.VarChar(255)
+  /** Relative path under UPLOAD_STORAGE_PATH (e.g. `{userId}/{id}.zip`). */
+  storagePath      String @db.VarChar(512)
+  sizeBytes        Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
 }

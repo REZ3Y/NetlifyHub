@@ -4,6 +4,7 @@ import { RouterView, useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import {
   BookOutline,
+  DocumentOutline,
   GridOutline,
   ListOutline,
   LogOutOutline,
@@ -45,6 +46,11 @@ const menuOptions = computed(() => [
     icon: renderIcon(PersonAddOutline),
   },
   {
+    label: t('nav.deployArtifacts'),
+    key: 'deployArtifacts',
+    icon: renderIcon(DocumentOutline),
+  },
+  {
     label: t('nav.settings'),
     key: 'settings',
     icon: renderIcon(SettingsOutline),
@@ -53,6 +59,7 @@ const menuOptions = computed(() => [
 
 const activeKey = computed(() => {
   if (route.name === 'settings') return 'settings';
+  if (route.name === 'deployArtifacts') return 'deployArtifacts';
   if (route.name === 'registerNetlifyAccount') return 'registerNetlifyAccount';
   if (
     route.name === 'netlifyAccountsList' ||
@@ -69,6 +76,7 @@ const pathByMenuKey: Record<string, string> = {
   settings: '/settings',
   netlifyAccountsList: '/netlify-accounts',
   registerNetlifyAccount: '/netlify-accounts/register',
+  deployArtifacts: '/deploy-files',
 };
 
 function onMenuSelect(key: string) {

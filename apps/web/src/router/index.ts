@@ -46,6 +46,11 @@ export const router = createRouter({
           name: 'netlifyAccountDetail',
           component: () => import('@/views/NetlifyAccountDetailView.vue'),
         },
+        {
+          path: 'deploy-files',
+          name: 'deployArtifacts',
+          component: () => import('@/views/DeployArtifactsView.vue'),
+        },
         /** Must stay last: unknown paths under `/` fall through here (avoids root-level `/:pathMatch` stealing nested routes). */
         {
           path: ':pathMatch(.*)*',
