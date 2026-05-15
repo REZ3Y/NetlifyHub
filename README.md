@@ -50,7 +50,7 @@ Use **`main`** in the URL only if that is your GitHub default branch; if the def
 
 This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), checks prerequisites (git, Node.js 22+, pnpm — installing them when possible), starts Postgres/Redis via Docker when available, runs migrations, and launches the interactive admin bootstrap.
 
-Set `NETLIFYHUB_SKIP_DOCKER=1` to skip auto-starting Docker. On Windows, install Node.js 22+ manually first, then re-run the installer.
+On Linux servers without Docker, the installer can install **PostgreSQL** and **Redis** via `apt`/`dnf` and set `DATABASE_URL` to port **5432**. Set `NETLIFYHUB_SKIP_DOCKER=1` to skip Docker; set `NETLIFYHUB_SKIP_NATIVE_DB=1` to skip native DB install. On Windows, install Node.js 22+ manually first.
 
 If you previously saw `404:: command not found`, you were missing **`curl -f`**: without it, curl prints GitHub’s error body and bash tries to run it as a script.
 

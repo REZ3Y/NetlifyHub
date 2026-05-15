@@ -290,50 +290,185 @@ _docker_compose_cmd() {
   return 1
 }
 
-_ensure_local_datastores() {
-  if [[ "${NETLIFYHUB_SKIP_DOCKER:-}" == "1" ]]; then
-    _log_info "Skipping Docker (NETLIFYHUB_SKIP_DOCKER=1)."
+_postgres_port_open() {
+  if _port_open 5433; then
+    echo 5433
     return 0
   fi
-
-  if _port_open 5433 && _port_open 6379; then
-    _log_info "PostgreSQL (:5433) and Redis (:6379) are already reachable."
+  if _port_open 5432; then
+    echo 5432
     return 0
   fi
+  return 1
+}
 
-  if ! _command_exists docker; then
-    _log_warn "Docker not found. Install Docker, then run: pnpm run docker:local"
-    _log_warn "Or start PostgreSQL/Redis yourself and set DATABASE_URL in .env"
-    return 0
-  fi
-
-  local compose
-  if ! compose="$(_docker_compose_cmd)"; then
-    _log_warn "Docker Compose not found. Install Docker Compose plugin or docker-compose."
-    return 0
-  fi
-
+_patch_env_database_url() {
+  local port="$1"
   local root="${NETLIFYHUB_INSTALL_ROOT:-$(pwd)}"
-  local compose_file="${root}/docker-compose.local.example.yml"
-  if [[ ! -f "$compose_file" ]]; then
-    _log_warn "Missing ${compose_file}; cannot start local Postgres/Redis."
-    return 0
+  local env_file="${root}/.env"
+  local url="postgresql://netlifyhub:netlifyhub@localhost:${port}/netlifyhub?schema=public"
+
+  if [[ ! -f "$env_file" ]]; then
+    return 1
   fi
 
-  _log_info "Starting PostgreSQL and Redis with Docker..."
-  (cd "$root" && $compose -f docker-compose.local.example.yml up -d)
+  if grep -q '^DATABASE_URL=' "$env_file"; then
+    if sed --version 2>/dev/null | grep -q GNU; then
+      sed -i "s|^DATABASE_URL=.*|DATABASE_URL=${url}|" "$env_file"
+    else
+      sed -i '' "s|^DATABASE_URL=.*|DATABASE_URL=${url}|" "$env_file" 2>/dev/null \
+        || sed -i "s|^DATABASE_URL=.*|DATABASE_URL=${url}|" "$env_file"
+    fi
+  else
+    printf '\nDATABASE_URL=%s\n' "$url" >>"$env_file"
+  fi
+  _log_info "DATABASE_URL set to localhost:${port} in .env"
+}
 
-  local i
+_ensure_postgres_role_and_db() {
+  local pg_user=netlifyhub
+  local pg_pass=netlifyhub
+  local pg_db=netlifyhub
+
+  if ! _command_exists psql && _command_exists sudo; then
+    if sudo -u postgres psql -tAc "SELECT 1" >/dev/null 2>&1; then
+      :
+    else
+      _log_err "Cannot run psql as postgres user."
+      return 1
+    fi
+  fi
+
+  run_psql() {
+    if [[ "$(id -u)" -eq 0 ]]; then
+      su - postgres -c "psql $*"
+    else
+      sudo -u postgres psql "$@"
+    fi
+  }
+
+  if ! run_psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${pg_user}'" | grep -q 1; then
+    run_psql -c "CREATE USER ${pg_user} WITH PASSWORD '${pg_pass}';"
+  fi
+  if ! run_psql -tAc "SELECT 1 FROM pg_database WHERE datname='${pg_db}'" | grep -q 1; then
+    run_psql -c "CREATE DATABASE ${pg_db} OWNER ${pg_user};"
+  fi
+  run_psql -d "${pg_db}" -c "GRANT ALL ON SCHEMA public TO ${pg_user};" >/dev/null 2>&1 || true
+}
+
+_start_systemd_service() {
+  local unit="$1"
+  if _command_exists systemctl; then
+    _run_as_root systemctl enable --now "$unit" 2>/dev/null || true
+  fi
+  if _command_exists service; then
+    _run_as_root service "$unit" start 2>/dev/null || true
+  fi
+}
+
+_ensure_native_postgres_redis() {
+  if [[ "${NETLIFYHUB_SKIP_NATIVE_DB:-}" == "1" ]]; then
+    return 1
+  fi
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    return 1
+  fi
+
+  _log_info "Installing PostgreSQL and Redis with the system package manager (no Docker)..."
+
+  if _command_exists apt-get; then
+    _run_as_root apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive _run_as_root apt-get install -y postgresql postgresql-contrib redis-server
+    _start_systemd_service postgresql
+    _start_systemd_service redis-server
+  elif _command_exists dnf; then
+    _run_as_root dnf install -y postgresql-server postgresql redis
+    if _command_exists postgresql-setup; then
+      _run_as_root postgresql-setup --initdb 2>/dev/null || true
+    fi
+    _start_systemd_service postgresql
+    _start_systemd_service redis
+  elif _command_exists yum; then
+    _run_as_root yum install -y postgresql-server postgresql redis
+    if _command_exists postgresql-setup; then
+      _run_as_root postgresql-setup initdb 2>/dev/null || true
+    fi
+    _start_systemd_service postgresql
+    _start_systemd_service redis
+  else
+    return 1
+  fi
+
+  sleep 2
+  _ensure_postgres_role_and_db || return 1
+  _patch_env_database_url 5432
+  return 0
+}
+
+_wait_for_datastores() {
+  local i pg_port
   for i in $(seq 1 45); do
-    if _port_open 5433 && _port_open 6379; then
-      _log_info "PostgreSQL and Redis are ready."
+    pg_port="$(_postgres_port_open)" || true
+    if [[ -n "${pg_port:-}" ]] && _port_open 6379; then
+      _patch_env_database_url "$pg_port"
+      _log_info "PostgreSQL (:${pg_port}) and Redis (:6379) are ready."
       return 0
     fi
     sleep 2
   done
+  return 1
+}
 
-  _log_warn "Timed out waiting for Postgres (:5433) or Redis (:6379)."
-  _log_warn "Check logs: $compose -f docker-compose.local.example.yml logs"
+_ensure_docker_datastores() {
+  local root="${NETLIFYHUB_INSTALL_ROOT:-$(pwd)}"
+  local compose_file="${root}/docker-compose.local.example.yml"
+  local compose
+
+  if ! compose="$(_docker_compose_cmd)"; then
+    return 1
+  fi
+  if [[ ! -f "$compose_file" ]]; then
+    return 1
+  fi
+
+  _log_info "Starting PostgreSQL and Redis with Docker..."
+  (cd "$root" && $compose -f docker-compose.local.example.yml up -d)
+  _patch_env_database_url 5433
+  _wait_for_datastores
+}
+
+# Call after repo-root `.env` exists (install.sh creates it first).
+netlifyhub_ensure_datastores() {
+  if [[ "${NETLIFYHUB_SKIP_DATASTORES:-}" == "1" ]]; then
+    _log_info "Skipping datastore setup (NETLIFYHUB_SKIP_DATASTORES=1)."
+    return 0
+  fi
+
+  local pg_port
+  pg_port="$(_postgres_port_open)" || true
+  if [[ -n "${pg_port:-}" ]] && _port_open 6379; then
+    _patch_env_database_url "$pg_port"
+    _log_info "PostgreSQL (:${pg_port}) and Redis (:6379) already reachable."
+    return 0
+  fi
+
+  if [[ "${NETLIFYHUB_SKIP_DOCKER:-}" != "1" ]] && _command_exists docker; then
+    if _ensure_docker_datastores; then
+      return 0
+    fi
+    _log_warn "Docker Compose did not start Postgres/Redis in time; trying native install..."
+  fi
+
+  if _ensure_native_postgres_redis && _wait_for_datastores; then
+    return 0
+  fi
+
+  _log_err "PostgreSQL and Redis are required but not reachable."
+  _log_err "Options:"
+  _log_err "  1) Install Docker, then re-run the installer"
+  _log_err "  2) apt install postgresql redis-server (Debian/Ubuntu) and re-run"
+  _log_err "  3) Start your own Postgres/Redis and set DATABASE_URL + REDIS_URL in .env"
+  exit 1
 }
 
 # Public entry — call from install.sh (after cd to repo root).
@@ -351,5 +486,4 @@ netlifyhub_install_prerequisites() {
   _ensure_curl
   _ensure_node
   _ensure_pnpm
-  _ensure_local_datastores
 }

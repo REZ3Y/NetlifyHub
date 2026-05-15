@@ -12,6 +12,8 @@ cd "$ROOT"
 source "${ROOT}/scripts/install-prerequisites.sh"
 
 export NETLIFYHUB_INSTALL_ROOT="$ROOT"
+
+_log_info "Checking Node.js, pnpm, and git..."
 netlifyhub_install_prerequisites full
 
 pnpm install
@@ -21,10 +23,12 @@ if [[ ! -f ".env" ]]; then
   echo "Created .env at repo root — edit DATABASE_URL, REDIS_URL, WEB_ORIGIN, TOKEN_ENCRYPTION_KEY."
 fi
 
+_log_info "Ensuring PostgreSQL and Redis are available..."
+netlifyhub_ensure_datastores
+
 if ! grep -qE '^DATABASE_URL=.+$' .env 2>/dev/null; then
   echo ""
   echo "ERROR: DATABASE_URL is missing or empty in .env"
-  echo "  Edit .env and set DATABASE_URL (default for Docker local: port 5433)."
   exit 1
 fi
 
