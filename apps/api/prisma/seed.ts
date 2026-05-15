@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import '../scripts/ensure-root-env.js';
 import bcrypt from 'bcryptjs';
 import { PrismaClient, Role } from '@prisma/client';
 

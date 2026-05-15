@@ -1,5 +1,7 @@
-import 'dotenv/config';
+import { loadRootEnv } from '@netlifyhub/shared';
 import { Worker } from 'bullmq';
+
+loadRootEnv();
 import pino from 'pino';
 import { Redis } from 'ioredis';
 import { loadEnv } from '@netlifyhub/api/env';

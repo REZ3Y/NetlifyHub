@@ -5,6 +5,9 @@ build
 .env
 .env.local
 .env.*.local
+apps/api/.env
+apps/worker/.env
+apps/web/.env
 # Personal overrides for local Docker (copy from docker-compose.local.example.yml)
 docker-compose.local.yml
 *.log

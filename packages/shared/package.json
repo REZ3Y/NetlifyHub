@@ -16,6 +16,9 @@
     "lint": "eslint src",
     "dev": "tsc -p tsconfig.json --watch"
   },
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
   "devDependencies": {
     "typescript": "^5.7.2"
   }

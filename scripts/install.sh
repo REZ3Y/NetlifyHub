@@ -15,20 +15,12 @@ fi
 
 pnpm install
 
-if [[ ! -f "apps/api/.env" ]]; then
-  cp apps/api/.env.example apps/api/.env
-  echo "Created apps/api/.env — set DATABASE_URL, REDIS_URL, WEB_ORIGIN before production."
+if [[ ! -f ".env" ]]; then
+  cp .env.example .env
+  echo "Created .env at repo root — set DATABASE_URL, REDIS_URL, WEB_ORIGIN, TOKEN_ENCRYPTION_KEY."
 fi
 
-if [[ ! -f "apps/worker/.env" ]]; then
-  cp apps/worker/.env.example apps/worker/.env
-fi
-
-if [[ ! -f "apps/web/.env" ]]; then
-  cp apps/web/.env.example apps/web/.env
-fi
-
-echo "Running database migrations (requires PostgreSQL and DATABASE_URL in apps/api/.env)..."
+echo "Running database migrations (requires PostgreSQL and DATABASE_URL in .env)..."
 pnpm --filter @netlifyhub/api exec prisma migrate deploy
 
 echo "Create the first administrator (interactive):"

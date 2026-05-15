@@ -15,9 +15,9 @@
     "format": "prettier -w \"**/*.{ts,tsx,vue,json,md}\"",
     "format:check": "prettier -c \"**/*.{ts,tsx,vue,json,md}\"",
     "prepare": "husky",
-    "db:generate": "pnpm --filter @netlifyhub/api exec prisma generate",
-    "db:migrate": "pnpm --filter @netlifyhub/api exec prisma migrate deploy",
-    "db:studio": "pnpm --filter @netlifyhub/api exec prisma studio",
+    "db:generate": "tsx apps/api/scripts/ensure-root-env.ts && pnpm --filter @netlifyhub/api exec prisma generate",
+    "db:migrate": "tsx apps/api/scripts/ensure-root-env.ts && pnpm --filter @netlifyhub/api exec prisma migrate deploy",
+    "db:studio": "tsx apps/api/scripts/ensure-root-env.ts && pnpm --filter @netlifyhub/api exec prisma studio",
     "bootstrap:admin": "pnpm db:migrate && pnpm --filter @netlifyhub/api run create-admin"
   },
   "lint-staged": {
@@ -31,6 +31,8 @@
   "devDependencies": {
     "@eslint/js": "^9.15.0",
     "concurrently": "^9.1.0",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2",
     "eslint": "^9.15.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.4.3",

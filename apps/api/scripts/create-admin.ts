@@ -1,4 +1,4 @@
-import './ensure-api-env.js';
+import './ensure-root-env.js';
 import * as readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { Role } from '@prisma/client';

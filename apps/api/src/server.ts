@@ -1,5 +1,7 @@
-import 'dotenv/config';
+import { loadRootEnv } from '@netlifyhub/shared';
 import { buildApp } from './app.js';
+
+loadRootEnv();
 import { loadEnv } from './config/env.js';
 import { registerTelegramQuotaScheduler } from './lib/telegram-queue-scheduler.js';
 
