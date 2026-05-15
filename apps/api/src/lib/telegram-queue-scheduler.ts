@@ -14,6 +14,13 @@ function resolveTelegramQuotaCronPattern(): string {
 
 export async function registerTelegramQuotaScheduler(redisUrl: string): Promise<void> {
   const cronPattern = resolveTelegramQuotaCronPattern();
+  if (!cronPattern.includes('*') && !cronPattern.includes('/')) {
+    console.warn(
+      '[telegram-scheduler] TELEGRAM_QUOTA_CRON_PATTERN looks truncated (%s). Use quotes in .env, e.g. TELEGRAM_QUOTA_CRON_PATTERN="*/1 * * * *"',
+      cronPattern
+    );
+  }
+
   const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
   const queue = new Queue(TELEGRAM_QUOTA_QUEUE, { connection });
 
@@ -34,6 +41,12 @@ export async function registerTelegramQuotaScheduler(redisUrl: string): Promise<
         removeOnComplete: 100,
         removeOnFail: 50,
       }
+    );
+    console.info(
+      '[telegram-scheduler] Registered repeatable job "%s" on queue "%s" with pattern: %s',
+      TELEGRAM_QUOTA_JOB_NAME,
+      TELEGRAM_QUOTA_QUEUE,
+      cronPattern
     );
   } finally {
     await queue.close();

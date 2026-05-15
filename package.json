@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "concurrently -n api,web,worker -c blue,green,magenta \"pnpm --filter @netlifyhub/api dev\" \"pnpm --filter @netlifyhub/web dev\" \"pnpm --filter @netlifyhub/worker dev\"",
     "dev:panel": "concurrently -n api,web -c blue,green \"pnpm --filter @netlifyhub/api dev\" \"pnpm --filter @netlifyhub/web dev\"",
+    "dev:worker": "pnpm --filter @netlifyhub/worker dev",
+    "queue:status": "tsx apps/api/scripts/queue-status.ts",
+    "telegram:trigger": "tsx apps/api/scripts/trigger-telegram-quota.ts",
     "docker:local": "docker compose -f docker-compose.local.example.yml up -d",
     "docker:local:down": "docker compose -f docker-compose.local.example.yml down",
     "docker:local:logs": "docker compose -f docker-compose.local.example.yml logs -f",

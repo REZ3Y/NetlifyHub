@@ -48,7 +48,15 @@ worker.on('failed', (job, err) => {
   log.error({ jobId: job?.id, err }, 'Job failed');
 });
 
-log.info('NetlifyHub worker listening on queue "%s"', TELEGRAM_QUOTA_QUEUE);
+log.info(
+  {
+    queue: TELEGRAM_QUOTA_QUEUE,
+    redis: redisUrl.replace(/:[^:@/]+@/, ':***@'),
+    cronPattern:
+      process.env.TELEGRAM_QUOTA_CRON_PATTERN?.trim() ?? '(registered by API on startup)',
+  },
+  'NetlifyHub worker listening (processes jobs from Redis; scheduler runs in API)'
+);
 
 const shutdown = async () => {
   log.info('Shutting down worker');
