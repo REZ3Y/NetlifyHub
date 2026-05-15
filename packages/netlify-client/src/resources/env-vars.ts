@@ -30,6 +30,7 @@ export type SetEnvVarValueInput = {
 export type UpdateEnvVarInput = {
   key?: string;
   values: Array<{
+    id?: string;
     value: string;
     context: EnvVarContext;
     context_parameter?: string;

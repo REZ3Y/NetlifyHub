@@ -1,4 +1,9 @@
-import type { CreateEnvVarInput, NetlifyEnvVar } from '@netlifyhub/netlify-client';
+import type {
+  CreateEnvVarInput,
+  NetlifyEnvVar,
+  SetEnvVarValueInput,
+  UpdateEnvVarInput,
+} from '@netlifyhub/netlify-client';
 import type { EnvVarContext } from '@netlifyhub/netlify-client';
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import type { NetlifyClient } from '../integrations/netlify/index.js';
@@ -92,11 +97,26 @@ function pickProductionBranch(site: Record<string, unknown>): string | undefined
   return undefined;
 }
 
+type EnvScope = NonNullable<CreateEnvVarInput['scopes']>[number];
+
+function normalizeScopes(scopes: string[] | undefined): EnvScope[] | undefined {
+  if (!scopes?.length) return undefined;
+  const map: Record<string, EnvScope> = {
+    builds: 'builds',
+    functions: 'functions',
+    runtime: 'runtime',
+    'post-processing': 'post-processing',
+    post_processing: 'post-processing',
+  };
+  const out = scopes.map((s) => map[s]).filter((s): s is EnvScope => Boolean(s));
+  return out.length ? [...new Set(out)] : undefined;
+}
+
 function mergeEnvValues(
   existing: NetlifyEnvVar,
   context: EnvVarContext,
   newValue: string
-): Array<{ value: string; context: EnvVarContext; context_parameter?: string }> {
+): UpdateEnvVarInput['values'] {
   const values = [...(existing.values ?? [])];
   const idx = values.findIndex((v) => (v.context ?? 'all') === context);
   const entry = { value: newValue, context };
@@ -105,13 +125,53 @@ function mergeEnvValues(
   } else {
     values.push(entry);
   }
-  return values.map((v) => ({
-    value: typeof v.value === 'string' ? v.value : '',
-    context: (v.context ?? 'all') as EnvVarContext,
-    ...(typeof v.context_parameter === 'string' && v.context_parameter
-      ? { context_parameter: v.context_parameter }
-      : {}),
-  }));
+  return values.map((v) => {
+    const ctx = (v.context ?? 'all') as EnvVarContext;
+    const item: UpdateEnvVarInput['values'][number] = {
+      value: typeof v.value === 'string' ? v.value : '',
+      context: ctx,
+    };
+    if (typeof v.id === 'string' && v.id) item.id = v.id;
+    if (typeof v.context_parameter === 'string' && v.context_parameter.trim()) {
+      item.context_parameter = v.context_parameter.trim();
+    }
+    return item;
+  });
+}
+
+async function updateExistingEnvVar(
+  client: NetlifyClient,
+  accountId: string,
+  siteId: string,
+  found: NetlifyEnvVar,
+  key: string,
+  context: EnvVarContext,
+  value: string
+): Promise<void> {
+  const match = found.values?.find((v) => (v.context ?? 'all') === context) ?? found.values?.[0];
+  const patchBody: SetEnvVarValueInput = { value, context };
+  if (typeof match?.context_parameter === 'string' && match.context_parameter.trim()) {
+    patchBody.context_parameter = match.context_parameter.trim();
+  }
+
+  try {
+    await client.envVars.setValueForSite(accountId, siteId, key, patchBody);
+    return;
+  } catch (patchErr) {
+    if (!(patchErr instanceof NetlifyApiError)) throw patchErr;
+  }
+
+  const putBody: UpdateEnvVarInput = {
+    key,
+    values: mergeEnvValues(found, context, value),
+    is_secret: Boolean(found.is_secret),
+  };
+  const scopes = normalizeScopes(
+    Array.isArray(found.scopes) ? found.scopes.filter((s) => typeof s === 'string') : undefined
+  );
+  if (scopes?.length) putBody.scopes = scopes;
+
+  await client.envVars.updateForSite(accountId, siteId, key, putBody);
 }
 
 async function triggerBuildHookUrl(
@@ -268,12 +328,7 @@ export async function saveLinkedNetlifySiteEnvVar(
           status: 400,
         };
       }
-      const merged = mergeEnvValues(found, context, input.value);
-      await client.envVars.updateForSite(accountId, siteId, key, {
-        values: merged,
-        is_secret: found.is_secret,
-        scopes: found.scopes as CreateEnvVarInput['scopes'],
-      });
+      await updateExistingEnvVar(client, accountId, siteId, found, key, context, input.value);
     } else {
       await client.envVars.createForSite(accountId, siteId, [
         {
