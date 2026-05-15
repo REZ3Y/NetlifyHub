@@ -9,6 +9,7 @@ import {
   setLinkedNetlifyAccountEnabled,
   updateLinkedNetlifyAccount,
 } from '../services/netlify-linked-account.service.js';
+import { fetchLinkedNetlifyAccountUsage } from '../services/netlify-account-usage.service.js';
 
 const createBody = z.object({
   title: z.string().max(128).optional(),
@@ -110,6 +111,30 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
     }
     return { account };
+  });
+
+  app.get('/:id/usage', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = idParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await fetchLinkedNetlifyAccountUsage(app.config, user.id, p.data.id);
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return { usage: result.usage };
   });
 
   app.get('/:id', async (request, reply) => {

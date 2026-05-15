@@ -40,11 +40,50 @@ export type NetlifyDeploy = Record<string, unknown> & {
   updated_at?: string;
 };
 
+export type NetlifyCapabilityQuota = {
+  included?: number;
+  used?: number;
+};
+
 export type NetlifyAccount = Record<string, unknown> & {
   id?: string;
   name?: string;
   slug?: string;
   type?: string;
+  type_name?: string;
+  type_id?: string;
+  billing_period?: string | null;
+  capabilities?: Record<string, NetlifyCapabilityQuota | unknown>;
+};
+
+/** `GET /accounts/{account_slug}/bandwidth` (undocumented in OpenAPI; used by Netlify dashboard). */
+export type NetlifyAccountBandwidth = {
+  used?: number;
+  included?: number;
+  additional?: number;
+  last_updated_at?: string;
+  period_start_date?: string;
+  period_end_date?: string;
+};
+
+export type NetlifyAccountBuildStatusMinutes = {
+  current?: number;
+  current_average_sec?: number;
+  previous?: number;
+  period_start_date?: string;
+  period_end_date?: string;
+  last_updated_at?: string;
+  included_minutes?: string | number;
+  included_minutes_with_packs?: string | number;
+};
+
+/** `GET /{account_id}/builds/status` */
+export type NetlifyAccountBuildStatus = {
+  active?: number;
+  pending_concurrency?: number;
+  enqueued?: number;
+  build_count?: number;
+  minutes?: NetlifyAccountBuildStatusMinutes;
 };
 
 export type NetlifyUser = Record<string, unknown> & {

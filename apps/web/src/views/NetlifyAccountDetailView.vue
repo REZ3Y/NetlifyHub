@@ -8,6 +8,7 @@ import { isAxiosError } from 'axios';
 import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { LinkedNetlifyAccount } from '@/types/netlify-linked-account';
+import type { NetlifyAccountUsage } from '@/types/netlify-account-usage';
 
 const { t } = useI18n();
 const route = useRoute();
@@ -17,6 +18,9 @@ const { formatDateTime } = useUserDateTime();
 
 const loading = ref(true);
 const account = ref<LinkedNetlifyAccount | null>(null);
+const usageLoading = ref(false);
+const usage = ref<NetlifyAccountUsage | null>(null);
+const usageError = ref(false);
 
 function formatNetlifyInstant(value: string | null): string {
   if (!value) return '—';
@@ -25,14 +29,35 @@ function formatNetlifyInstant(value: string | null): string {
   return value;
 }
 
+async function loadUsage(id: string, enabled: boolean) {
+  usage.value = null;
+  usageError.value = false;
+  if (!enabled) return;
+  usageLoading.value = true;
+  try {
+    const { data } = await http.get<{ usage: NetlifyAccountUsage }>(
+      `/v1/netlify-accounts/${id}/usage`
+    );
+    usage.value = data.usage;
+  } catch {
+    usageError.value = true;
+    message.error(t('netlifyAccountDetail.usageLoadError'));
+  } finally {
+    usageLoading.value = false;
+  }
+}
+
 async function load(id: string) {
   loading.value = true;
   account.value = null;
+  usage.value = null;
+  usageError.value = false;
   try {
     const { data } = await http.get<{ account: LinkedNetlifyAccount }>(
       `/v1/netlify-accounts/${id}`
     );
     account.value = data.account;
+    void loadUsage(id, data.account.enabled);
   } catch (e) {
     if (isAxiosError(e) && e.response?.status === 404) {
       message.warning(t('netlifyAccountDetail.notFound'));
@@ -115,10 +140,25 @@ function goEdit() {
   if (!account.value) return;
   void router.push({ name: 'netlifyAccountEdit', params: { id: account.value.id } });
 }
+
+const billingPeriodText = computed(() => {
+  const period = usage.value?.billingPeriod;
+  if (!period) return null;
+  const start = formatDateTime(period.start, { dateStyle: 'medium', timeStyle: undefined });
+  const end = formatDateTime(period.end, { dateStyle: 'medium', timeStyle: undefined });
+  return t('netlifyAccountDetail.usageBillingPeriod', { start, end });
+});
+
+const otherTeamsHint = computed(() => {
+  const teams = usage.value?.otherTeams ?? [];
+  if (!teams.length) return null;
+  const names = teams.map((x) => x.name).join(', ');
+  return t('netlifyAccountDetail.usageOtherTeams', { teams: names });
+});
 </script>
 
 <template>
-  <n-space vertical size="large" style="max-width: 640px">
+  <n-space vertical size="large" style="max-width: 920px">
     <div>
       <n-button quaternary size="small" @click="goList">
         <template #icon>
@@ -137,6 +177,69 @@ function goEdit() {
           </div>
           <n-button type="primary" @click="goEdit">{{ t('netlifyAccountDetail.edit') }}</n-button>
         </div>
+
+        <n-card v-if="!account.enabled" :title="t('netlifyAccountDetail.usageTitle')">
+          <n-text depth="3">{{ t('netlifyAccountDetail.usageDisabled') }}</n-text>
+        </n-card>
+
+        <n-card v-else :title="t('netlifyAccountDetail.usageTitle')">
+          <n-spin :show="usageLoading">
+            <template v-if="usage">
+              <n-space vertical size="small" style="margin-bottom: 16px">
+                <n-space align="center" wrap :size="8">
+                  <n-text strong>{{ usage.teamName }}</n-text>
+                  <n-tag v-if="usage.planName" type="success" size="small" round>
+                    {{ usage.planName }}
+                  </n-tag>
+                </n-space>
+                <n-text depth="3" style="margin: 0">
+                  {{ t('netlifyAccountDetail.usageSubtitle', { team: usage.teamSlug }) }}
+                </n-text>
+                <n-text v-if="billingPeriodText" depth="3">{{ billingPeriodText }}</n-text>
+                <n-text v-if="otherTeamsHint" depth="3">{{ otherTeamsHint }}</n-text>
+              </n-space>
+
+              <n-grid cols="1 s:2 m:4" :x-gap="12" :y-gap="12">
+                <n-gi v-if="usage.bandwidth">
+                  <n-card size="small" embedded>
+                    <n-statistic :label="t('netlifyAccountDetail.usageBandwidth')">
+                      <template #default>
+                        {{ usage.bandwidth.usedLabel }} / {{ usage.bandwidth.includedLabel }}
+                      </template>
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+                <n-gi>
+                  <n-card size="small" embedded>
+                    <n-statistic :label="t('netlifyAccountDetail.usageBuildMinutes')">
+                      <template #default>
+                        {{ usage.buildMinutes.usedLabel }} /
+                        {{ usage.buildMinutes.includedLabel }}
+                      </template>
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+                <n-gi>
+                  <n-card size="small" embedded>
+                    <n-statistic :label="t('netlifyAccountDetail.usageConcurrentBuilds')">
+                      <template #default>{{ usage.concurrentBuilds.label }}</template>
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+                <n-gi>
+                  <n-card size="small" embedded>
+                    <n-statistic :label="t('netlifyAccountDetail.usageTeamMembers')">
+                      <template #default>{{ usage.teamMembers.label }}</template>
+                    </n-statistic>
+                  </n-card>
+                </n-gi>
+              </n-grid>
+            </template>
+            <n-text v-else-if="usageError" depth="3">
+              {{ t('netlifyAccountDetail.usageLoadError') }}
+            </n-text>
+          </n-spin>
+        </n-card>
 
         <n-card :segmented="{ content: true }">
           <n-table bordered :single-line="false" size="small" class="detail-table">

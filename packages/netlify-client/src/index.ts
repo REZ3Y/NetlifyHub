@@ -13,6 +13,15 @@ export {
 } from './pagination.js';
 export { createNetlifyClient, NetlifyClient, type NetlifyClientOptions } from './netlify-client.js';
 export type { HttpMethod, NetlifyRequestInit, QueryValue } from './types.js';
-export type { NetlifyAccount, NetlifyDeploy, NetlifySite, NetlifyUser } from './types.js';
+export type {
+  NetlifyAccount,
+  NetlifyAccountBandwidth,
+  NetlifyAccountBuildStatus,
+  NetlifyAccountBuildStatusMinutes,
+  NetlifyCapabilityQuota,
+  NetlifyDeploy,
+  NetlifySite,
+  NetlifyUser,
+} from './types.js';
 export type { ListSitesParams } from './resources/sites.js';
 export type { ListSiteDeploysParams } from './resources/deploys.js';
