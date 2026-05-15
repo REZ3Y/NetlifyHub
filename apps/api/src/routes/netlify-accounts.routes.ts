@@ -9,7 +9,10 @@ import {
   setLinkedNetlifyAccountEnabled,
   updateLinkedNetlifyAccount,
 } from '../services/netlify-linked-account.service.js';
-import { fetchLinkedNetlifyAccountUsage } from '../services/netlify-account-usage.service.js';
+import {
+  fetchLinkedNetlifyAccountUsage,
+  fetchUsageSummariesForLinkedAccounts,
+} from '../services/netlify-account-usage.service.js';
 import {
   fetchLinkedNetlifyAccountSites,
   streamLinkedNetlifySiteThumbnail,
@@ -95,6 +98,18 @@ const sitesQuery = z.object({
     .transform((v) => v === 'true'),
 });
 
+const usageQuery = z.object({
+  refresh: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+});
+
+const usageSummariesBody = z.object({
+  accountIds: z.array(z.string().min(1)).min(1).max(100),
+  refresh: z.boolean().optional(),
+});
+
 const patchBody = z
   .object({
     title: z.string().max(128).nullable().optional(),
@@ -158,6 +173,28 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     return { account: result.account };
+  });
+
+  app.post('/usage-summaries', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const body = usageSummariesBody.safeParse(request.body);
+    if (!body.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid payload',
+        details: body.error.flatten(),
+      });
+    }
+
+    const summaries = await fetchUsageSummariesForLinkedAccounts(
+      app.config,
+      user.id,
+      body.data.accountIds,
+      { refresh: body.data.refresh }
+    );
+    return { summaries };
   });
 
   app.patch('/:id/enabled', async (request, reply) => {
@@ -560,7 +597,18 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
       return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
     }
 
-    const result = await fetchLinkedNetlifyAccountUsage(app.config, user.id, p.data.id);
+    const q = usageQuery.safeParse(request.query);
+    if (!q.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid query',
+        details: q.error.flatten(),
+      });
+    }
+
+    const result = await fetchLinkedNetlifyAccountUsage(app.config, user.id, p.data.id, {
+      refresh: q.data.refresh,
+    });
     if (!result.ok) {
       return reply.code(result.status).send({
         error: result.error,

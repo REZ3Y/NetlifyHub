@@ -58,14 +58,17 @@ async function loadSites(id: string, enabled: boolean, options?: { refresh?: boo
   }
 }
 
-async function loadUsage(id: string, enabled: boolean) {
-  usage.value = null;
+async function loadUsage(id: string, enabled: boolean, options?: { refresh?: boolean }) {
+  if (options?.refresh) {
+    usage.value = null;
+  }
   usageError.value = false;
   if (!enabled) return;
   usageLoading.value = true;
   try {
     const { data } = await http.get<{ usage: NetlifyAccountUsage }>(
-      `/v1/netlify-accounts/${id}/usage`
+      `/v1/netlify-accounts/${id}/usage`,
+      { params: options?.refresh ? { refresh: 'true' } : undefined }
     );
     usage.value = data.usage;
   } catch {
@@ -74,6 +77,11 @@ async function loadUsage(id: string, enabled: boolean) {
   } finally {
     usageLoading.value = false;
   }
+}
+
+function refreshUsage() {
+  if (!account.value?.enabled) return;
+  void loadUsage(account.value.id, true, { refresh: true });
 }
 
 async function load(id: string) {
@@ -219,9 +227,24 @@ const billingPeriodText = computed(() => {
                       {{ t('netlifyAccountDetail.usageSubtitle', { team: usage.teamSlug }) }}
                     </n-text>
                   </div>
-                  <n-text v-if="billingPeriodText" depth="3" class="usage-card__period">
-                    {{ billingPeriodText }}
-                  </n-text>
+                  <n-space align="center" :size="8" :wrap="false">
+                    <n-text v-if="billingPeriodText" depth="3" class="usage-card__period">
+                      {{ billingPeriodText }}
+                    </n-text>
+                    <n-button
+                      v-if="account.enabled"
+                      quaternary
+                      circle
+                      size="small"
+                      :loading="usageLoading"
+                      :title="t('netlifyAccountDetail.usageRefresh')"
+                      @click="refreshUsage"
+                    >
+                      <template #icon>
+                        <n-icon :component="RefreshOutline" />
+                      </template>
+                    </n-button>
+                  </n-space>
                 </div>
               </template>
 

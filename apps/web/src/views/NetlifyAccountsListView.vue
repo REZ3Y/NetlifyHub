@@ -14,6 +14,7 @@ import { isAxiosError } from 'axios';
 import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { LinkedNetlifyAccount } from '@/types/netlify-linked-account';
+import type { NetlifyAccountUsageSummary } from '@/types/netlify-account-usage-summary';
 
 const { t } = useI18n();
 const router = useRouter();
@@ -27,6 +28,8 @@ const page = ref(1);
 const pageSize = ref(PAGE_SIZE);
 const total = ref(0);
 const accounts = ref<LinkedNetlifyAccount[]>([]);
+const usageSummaries = ref<Record<string, NetlifyAccountUsageSummary | null>>({});
+const summariesLoading = ref(false);
 const togglingId = ref<string | null>(null);
 const deletingId = ref<string | null>(null);
 
@@ -38,6 +41,38 @@ function formatNetlifyInstant(value: string | null): string {
   const asDate = new Date(value);
   if (!Number.isNaN(asDate.getTime())) return formatDateTime(asDate);
   return value;
+}
+
+async function loadUsageSummaries(ids: string[]) {
+  const enabledIds = ids.filter((id) => accounts.value.find((a) => a.id === id && a.enabled));
+  if (!enabledIds.length) return;
+  summariesLoading.value = true;
+  try {
+    const { data } = await http.post<{
+      summaries: Record<string, NetlifyAccountUsageSummary | null>;
+    }>('/v1/netlify-accounts/usage-summaries', { accountIds: enabledIds });
+    usageSummaries.value = { ...usageSummaries.value, ...data.summaries };
+  } catch {
+    /* keep table cells as — */
+  } finally {
+    summariesLoading.value = false;
+  }
+}
+
+function planCell(row: LinkedNetlifyAccount): string {
+  if (!row.enabled) return '—';
+  const s = usageSummaries.value[row.id];
+  if (s?.planName) return s.planName;
+  if (summariesLoading.value) return '…';
+  return '—';
+}
+
+function quotaCell(row: LinkedNetlifyAccount): string {
+  if (!row.enabled) return '—';
+  const s = usageSummaries.value[row.id];
+  if (s?.quotaLabel) return s.quotaLabel;
+  if (summariesLoading.value) return '…';
+  return '—';
 }
 
 async function load() {
@@ -53,10 +88,13 @@ async function load() {
     });
     accounts.value = data.accounts;
     total.value = data.total;
+    usageSummaries.value = {};
+    void loadUsageSummaries(data.accounts.map((a) => a.id));
   } catch {
     message.error(t('netlifyAccountsList.loadError'));
     accounts.value = [];
     total.value = 0;
+    usageSummaries.value = {};
   } finally {
     loading.value = false;
   }
@@ -132,6 +170,13 @@ async function toggleEnabled(row: LinkedNetlifyAccount) {
     );
     const i = accounts.value.findIndex((a) => a.id === row.id);
     if (i !== -1) accounts.value[i] = data.account;
+    if (next) {
+      void loadUsageSummaries([row.id]);
+    } else {
+      const nextSummaries = { ...usageSummaries.value };
+      delete nextSummaries[row.id];
+      usageSummaries.value = nextSummaries;
+    }
     message.success(
       next ? t('netlifyAccountsList.enabledToast') : t('netlifyAccountsList.disabledToast')
     );
@@ -169,6 +214,8 @@ function renderIcon(icon: typeof EyeOutline) {
                   <th scope="col" class="col-idx">{{ t('netlifyAccountsList.colRow') }}</th>
                   <th scope="col">{{ t('netlifyAccountsList.colTitle') }}</th>
                   <th scope="col">{{ t('netlifyAccountsList.colEmail') }}</th>
+                  <th scope="col">{{ t('netlifyAccountsList.colPlan') }}</th>
+                  <th scope="col">{{ t('netlifyAccountsList.colQuota') }}</th>
                   <th scope="col">{{ t('netlifyAccountsList.colNetlifyCreated') }}</th>
                   <th scope="col">{{ t('netlifyAccountsList.colLastLogin') }}</th>
                   <th scope="col" class="col-actions">{{ t('netlifyAccountsList.colActions') }}</th>
@@ -176,7 +223,7 @@ function renderIcon(icon: typeof EyeOutline) {
               </thead>
               <tbody>
                 <tr v-if="!loading && total === 0" class="empty-row">
-                  <td colspan="6">
+                  <td colspan="8">
                     <div class="empty-inner">
                       <n-alert type="info" :show-icon="true" class="empty-alert">
                         {{ t('netlifyAccountsList.emptyHint') }}
@@ -193,6 +240,8 @@ function renderIcon(icon: typeof EyeOutline) {
                   </td>
                   <td>{{ row.label?.trim() ? row.label : '—' }}</td>
                   <td>{{ row.email ?? '—' }}</td>
+                  <td>{{ planCell(row) }}</td>
+                  <td class="tabular-nums">{{ quotaCell(row) }}</td>
                   <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyCreatedAt) }}</td>
                   <td class="tabular-nums">{{ formatNetlifyInstant(row.netlifyLastLogin) }}</td>
                   <td class="col-actions">

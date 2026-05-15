@@ -1,6 +1,7 @@
 import type { NetlifyAccount, NetlifyCapabilityQuota } from '@netlifyhub/netlify-client';
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import type { Env } from '../config/env.js';
+import { prisma } from '../db/prisma.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 const GIB = 1024 ** 3;
@@ -46,6 +47,13 @@ export type NetlifyAccountUsageDto = {
   concurrentBuilds: { active: number; limit: number | null; label: string } | null;
   teamMembers: { count: number; limit: number | null; label: string } | null;
   otherTeams: { name: string; slug: string }[];
+};
+
+/** Compact usage row for the linked-accounts list. */
+export type NetlifyAccountUsageSummaryDto = {
+  planName: string | null;
+  quotaLabel: string | null;
+  quotaKind: 'bandwidth' | 'credits' | null;
 };
 
 function formatBytesLabel(bytes: number): string {
@@ -145,15 +153,94 @@ function pickBillingPeriod(
   return { start, end };
 }
 
+export function getCachedLinkedNetlifyAccountUsage(
+  userId: string,
+  linkedAccountId: string
+): NetlifyAccountUsageDto | null {
+  const cached = usageCache.get(usageCacheKey(userId, linkedAccountId));
+  if (cached && cached.expiresAt > Date.now()) return cached.usage;
+  return null;
+}
+
+export function usageToSummary(usage: NetlifyAccountUsageDto): NetlifyAccountUsageSummaryDto {
+  if (usage.credits) {
+    return {
+      planName: usage.planName,
+      quotaKind: 'credits',
+      quotaLabel: `${usage.credits.remainingLabel} / ${usage.credits.includedLabel}`,
+    };
+  }
+  if (usage.bandwidth) {
+    return {
+      planName: usage.planName,
+      quotaKind: 'bandwidth',
+      quotaLabel: `${usage.bandwidth.usedLabel} / ${usage.bandwidth.includedLabel}`,
+    };
+  }
+  return {
+    planName: usage.planName,
+    quotaKind: null,
+    quotaLabel: null,
+  };
+}
+
+export async function fetchUsageSummariesForLinkedAccounts(
+  env: Env,
+  userId: string,
+  accountIds: string[],
+  options?: { refresh?: boolean }
+): Promise<Record<string, NetlifyAccountUsageSummaryDto | null>> {
+  const uniqueIds = [...new Set(accountIds.filter((id) => id.length > 0))];
+  const result: Record<string, NetlifyAccountUsageSummaryDto | null> = {};
+  if (!uniqueIds.length) return result;
+
+  const rows = await prisma.netlifyLinkedAccount.findMany({
+    where: { userId, id: { in: uniqueIds } },
+    select: { id: true, enabled: true },
+  });
+
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+  for (const id of uniqueIds) {
+    const row = rowById.get(id);
+    if (!row || !row.enabled) {
+      result[id] = null;
+    }
+  }
+
+  const toFetch = rows.filter((r) => r.enabled).map((r) => r.id);
+  await Promise.all(
+    toFetch.map(async (linkedAccountId) => {
+      if (!options?.refresh) {
+        const cached = getCachedLinkedNetlifyAccountUsage(userId, linkedAccountId);
+        if (cached) {
+          result[linkedAccountId] = usageToSummary(cached);
+          return;
+        }
+      }
+      const fetched = await fetchLinkedNetlifyAccountUsage(env, userId, linkedAccountId, {
+        refresh: options?.refresh,
+      });
+      result[linkedAccountId] = fetched.ok ? usageToSummary(fetched.usage) : null;
+    })
+  );
+
+  return result;
+}
+
 export async function fetchLinkedNetlifyAccountUsage(
   env: Env,
   userId: string,
-  linkedAccountId: string
+  linkedAccountId: string,
+  options?: { refresh?: boolean }
 ): Promise<
   | { ok: true; usage: NetlifyAccountUsageDto }
   | { ok: false; error: string; message: string; status: number }
 > {
   const cacheKey = usageCacheKey(userId, linkedAccountId);
+  if (options?.refresh) {
+    usageCache.delete(cacheKey);
+  }
+
   const cached = usageCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { ok: true, usage: cached.usage };
