@@ -3,6 +3,7 @@ export type NetlifyLinkedSite = {
   id: string;
   name: string;
   displayDomain: string | null;
+  copyDomain: string | null;
   deploySource: string;
   ownerName: string | null;
   publishedAt: string | null;

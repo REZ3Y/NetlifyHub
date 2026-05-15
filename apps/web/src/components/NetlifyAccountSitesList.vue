@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ChevronForwardOutline, OpenOutline } from '@vicons/ionicons5';
+import { ChevronForwardOutline, CopyOutline, OpenOutline } from '@vicons/ionicons5';
+import { useMessage } from 'naive-ui';
+import { useClipboard } from '@vueuse/core';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
+import NetlifyAccountSiteObservabilityModal from '@/components/NetlifyAccountSiteObservabilityModal.vue';
 
 const PLACEHOLDER_THUMB = '/site-thumb-404.svg';
 
@@ -15,9 +18,13 @@ const props = defineProps<{
 }>();
 
 const { t, locale } = useI18n();
+const message = useMessage();
 const { formatDateTime } = useUserDateTime();
+const { copy: copyToClipboard } = useClipboard();
 
 const brokenThumbs = ref<Set<string>>(new Set());
+const observabilityOpen = ref(false);
+const selectedSite = ref<NetlifyLinkedSite | null>(null);
 
 function thumbSrc(site: NetlifyLinkedSite): string {
   if (!site.hasThumbnail || brokenThumbs.value.has(site.id)) return PLACEHOLDER_THUMB;
@@ -46,7 +53,30 @@ function formatPublished(site: NetlifyLinkedSite): string | null {
   return t('netlifyAccountDetail.sitesPublishedAt', { at, relative });
 }
 
-const sortedSites = computed(() => [...props.sites].sort((a, b) => a.name.localeCompare(b.name)));
+const sortedSites = computed(() =>
+  [...props.sites].sort((a, b) => {
+    const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
+    const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
+    if (tb !== ta) return tb - ta;
+    return a.name.localeCompare(b.name);
+  })
+);
+
+async function copyDomain(site: NetlifyLinkedSite) {
+  const value = site.copyDomain ?? site.displayDomain;
+  if (!value) {
+    message.warning(t('netlifyAccountDetail.sitesCopyDomainMissing'));
+    return;
+  }
+  const host = value.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+  await copyToClipboard(host);
+  message.success(t('netlifyAccountDetail.sitesCopyDomainDone', { domain: host }));
+}
+
+function openObservability(site: NetlifyLinkedSite) {
+  selectedSite.value = site;
+  observabilityOpen.value = true;
+}
 </script>
 
 <template>
@@ -72,7 +102,14 @@ const sortedSites = computed(() => [...props.sites].sort((a, b) => a.name.locale
             />
           </div>
           <div class="sites-list__body">
-            <n-text strong class="sites-list__name">{{ site.name }}</n-text>
+            <n-button
+              text
+              type="primary"
+              class="sites-list__name-btn"
+              @click="openObservability(site)"
+            >
+              <n-text strong class="sites-list__name">{{ site.name }}</n-text>
+            </n-button>
             <n-text v-if="site.displayDomain" depth="3" class="sites-list__domain">
               {{ site.displayDomain }}
             </n-text>
@@ -85,21 +122,49 @@ const sortedSites = computed(() => [...props.sites].sort((a, b) => a.name.locale
             </n-text>
           </div>
           <div class="sites-list__actions">
+            <n-button
+              v-if="site.copyDomain || site.displayDomain"
+              quaternary
+              circle
+              size="small"
+              :title="t('netlifyAccountDetail.sitesCopyDomain')"
+              @click="copyDomain(site)"
+            >
+              <template #icon>
+                <n-icon :component="CopyOutline" />
+              </template>
+            </n-button>
             <a
-              v-if="site.adminUrl"
+              v-if="site.sslUrl || site.adminUrl"
               class="sites-list__link"
-              :href="site.adminUrl"
+              :href="site.sslUrl ?? site.adminUrl ?? undefined"
               target="_blank"
               rel="noopener noreferrer"
-              :title="t('netlifyAccountDetail.sitesOpenAdmin')"
+              :title="t('netlifyAccountDetail.sitesOpenSite')"
             >
               <n-icon :component="OpenOutline" size="18" />
             </a>
-            <n-icon :component="ChevronForwardOutline" size="18" depth="3" />
+            <n-button
+              quaternary
+              circle
+              size="small"
+              :title="t('netlifyAccountDetail.obsTitle')"
+              @click="openObservability(site)"
+            >
+              <template #icon>
+                <n-icon :component="ChevronForwardOutline" size="18" />
+              </template>
+            </n-button>
           </div>
         </li>
       </ul>
     </n-spin>
+
+    <NetlifyAccountSiteObservabilityModal
+      v-model:show="observabilityOpen"
+      :linked-account-id="linkedAccountId"
+      :site="selectedSite"
+    />
   </n-card>
 </template>
 
@@ -157,6 +222,12 @@ const sortedSites = computed(() => [...props.sites].sort((a, b) => a.name.locale
   gap: 2px;
 }
 
+.sites-list__name-btn {
+  padding: 0;
+  height: auto;
+  justify-content: flex-start;
+}
+
 .sites-list__name {
   font-size: 0.95rem;
 }
@@ -173,16 +244,22 @@ const sortedSites = computed(() => [...props.sites].sort((a, b) => a.name.locale
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .sites-list__link {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   color: var(--n-text-color-3);
   text-decoration: none;
+  border-radius: 50%;
 }
 
 .sites-list__link:hover {
   color: var(--n-text-color-1);
+  background: var(--n-button-color-hover);
 }
 </style>

@@ -14,6 +14,10 @@ import {
   fetchLinkedNetlifyAccountSites,
   streamLinkedNetlifySiteThumbnail,
 } from '../services/netlify-account-sites.service.js';
+import {
+  fetchLinkedNetlifySiteObservability,
+  type ObservabilityRange,
+} from '../services/netlify-site-observability.service.js';
 
 const createBody = z.object({
   title: z.string().max(128).optional(),
@@ -25,6 +29,10 @@ const idParams = z.object({ id: z.string().min(1) });
 const siteIdParams = z.object({
   id: z.string().min(1),
   siteId: z.string().min(1),
+});
+
+const observabilityQuery = z.object({
+  range: z.enum(['1h', '6h', '24h', '7d']).default('1h'),
 });
 
 const listQuery = z.object({
@@ -137,6 +145,45 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     await streamLinkedNetlifySiteThumbnail(app.config, user.id, p.data.id, p.data.siteId, reply);
+  });
+
+  app.get('/:id/sites/:siteId/observability', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = siteIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const q = observabilityQuery.safeParse(request.query);
+    if (!q.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid query',
+        details: q.error.flatten(),
+      });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await fetchLinkedNetlifySiteObservability(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId,
+      q.data.range as ObservabilityRange
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return { observability: result.observability };
   });
 
   app.get('/:id/sites', async (request, reply) => {

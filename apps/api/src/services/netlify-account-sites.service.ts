@@ -32,6 +32,8 @@ export type NetlifyLinkedSiteDto = {
   id: string;
   name: string;
   displayDomain: string | null;
+  /** Hostname for clipboard (no protocol), from production deploy or site URL. */
+  copyDomain: string | null;
   deploySource: string;
   ownerName: string | null;
   publishedAt: string | null;
@@ -39,6 +41,27 @@ export type NetlifyLinkedSiteDto = {
   sslUrl: string | null;
   hasThumbnail: boolean;
 };
+
+function stripProtocol(value: string): string {
+  return value.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+}
+
+function pickCopyDomain(site: NetlifySite): string | null {
+  const deploy = asRecord(site.published_deploy);
+  if (deploy && deploy.context === 'production') {
+    const fromDeploy =
+      (typeof deploy.default_domain === 'string' && deploy.default_domain.trim()) ||
+      (typeof deploy.ssl_url === 'string' && deploy.ssl_url.trim()) ||
+      (typeof deploy.url === 'string' && deploy.url.trim());
+    if (fromDeploy) return stripProtocol(fromDeploy);
+  }
+  const fallback =
+    (typeof site.custom_domain === 'string' && site.custom_domain.trim()) ||
+    (typeof site.ssl_url === 'string' && site.ssl_url.trim()) ||
+    (typeof site.url === 'string' && site.url.trim()) ||
+    null;
+  return fallback ? stripProtocol(fallback) : null;
+}
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -102,6 +125,7 @@ function mapSite(site: NetlifySite, teamName: string): NetlifyLinkedSiteDto {
     id,
     name,
     displayDomain: customDomain ?? sslUrl ?? url,
+    copyDomain: pickCopyDomain(site),
     deploySource: deploySourceLabel(site),
     ownerName: accountName || null,
     publishedAt,
@@ -204,7 +228,12 @@ export async function fetchLinkedNetlifyAccountSites(
     const sites = rawSites
       .map((s) => mapSite(s, teamName))
       .filter((s) => s.id)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        const ta = a.publishedAt ? Date.parse(a.publishedAt) : 0;
+        const tb = b.publishedAt ? Date.parse(b.publishedAt) : 0;
+        if (tb !== ta) return tb - ta;
+        return a.name.localeCompare(b.name);
+      });
 
     sitesCache.set(cacheKey, {
       sites,
