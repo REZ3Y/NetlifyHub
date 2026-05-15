@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { isAxiosError } from 'axios';
-import { NTag, useMessage } from 'naive-ui';
+import { ChatbubbleOutline, PeopleOutline } from '@vicons/ionicons5';
+import { NButton, NIcon, NTag, NTooltip, useMessage } from 'naive-ui';
 import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import { useAuthStore } from '@/stores/auth';
 import type {
+  TelegramDeliveryResult,
   TelegramNotificationLog,
   TelegramNotificationLogStatus,
   TelegramNotificationSettings,
@@ -34,6 +36,25 @@ const logs = ref<TelegramNotificationLog[]>([]);
 const logsPage = ref(1);
 const logsTotal = ref(0);
 const pageSize = 20;
+
+const showMessageModal = ref(false);
+const messageModalText = ref('');
+const showDeliveryModal = ref(false);
+const deliveryModalResults = ref<TelegramDeliveryResult[]>([]);
+
+function renderIcon(icon: typeof ChatbubbleOutline) {
+  return () => h(NIcon, { size: 18, component: icon });
+}
+
+function openMessageModal(text: string) {
+  messageModalText.value = text;
+  showMessageModal.value = true;
+}
+
+function openDeliveryModal(results: TelegramDeliveryResult[]) {
+  deliveryModalResults.value = results;
+  showDeliveryModal.value = true;
+}
 
 function apiErrorMessage(err: unknown, fallback: string): string {
   if (isAxiosError(err) && err.response?.data && typeof err.response.data === 'object') {
@@ -254,7 +275,7 @@ onMounted(() => {
                     <th>{{ t('telegramNotifications.logs.colStatus') }}</th>
                     <th>{{ t('telegramNotifications.logs.colAccount') }}</th>
                     <th>{{ t('telegramNotifications.logs.colRecipients') }}</th>
-                    <th>{{ t('telegramNotifications.logs.colMessage') }}</th>
+                    <th class="col-actions">{{ t('telegramNotifications.logs.colActions') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -272,15 +293,33 @@ onMounted(() => {
                       </n-text>
                     </td>
                     <td>{{ row.recipients.join(', ') || '—' }}</td>
-                    <td class="col-message">
-                      <span class="message-preview">{{ row.message }}</span>
-                      <n-text
-                        v-if="row.errorMessage"
-                        type="error"
-                        style="display: block; font-size: 12px"
-                      >
-                        {{ row.errorMessage }}
-                      </n-text>
+                    <td class="col-actions">
+                      <n-space justify="center" :size="4" :wrap="false">
+                        <n-tooltip trigger="hover">
+                          <template #trigger>
+                            <n-button
+                              quaternary
+                              circle
+                              size="small"
+                              :render-icon="renderIcon(ChatbubbleOutline)"
+                              @click="openMessageModal(row.message)"
+                            />
+                          </template>
+                          {{ t('telegramNotifications.logs.viewMessage') }}
+                        </n-tooltip>
+                        <n-tooltip trigger="hover">
+                          <template #trigger>
+                            <n-button
+                              quaternary
+                              circle
+                              size="small"
+                              :render-icon="renderIcon(PeopleOutline)"
+                              @click="openDeliveryModal(row.deliveryResults)"
+                            />
+                          </template>
+                          {{ t('telegramNotifications.logs.viewDelivery') }}
+                        </n-tooltip>
+                      </n-space>
                     </td>
                   </tr>
                 </tbody>
@@ -298,6 +337,44 @@ onMounted(() => {
         </n-tab-pane>
       </n-tabs>
     </template>
+
+    <n-modal
+      v-model:show="showMessageModal"
+      preset="card"
+      :title="t('telegramNotifications.logs.messageModalTitle')"
+      style="width: min(520px, 92vw)"
+    >
+      <pre class="message-modal-body">{{ messageModalText }}</pre>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showDeliveryModal"
+      preset="card"
+      :title="t('telegramNotifications.logs.deliveryModalTitle')"
+      style="width: min(560px, 92vw)"
+    >
+      <n-empty
+        v-if="!deliveryModalResults.length"
+        :description="t('telegramNotifications.logs.noDeliveryDetails')"
+      />
+      <ul v-else class="delivery-list">
+        <li v-for="item in deliveryModalResults" :key="item.chatId" class="delivery-list__item">
+          <div class="delivery-list__head">
+            <span class="delivery-list__id">{{ item.chatId }}</span>
+            <n-tag size="small" :type="item.ok ? 'success' : 'error'" :bordered="false">
+              {{
+                item.ok
+                  ? t('telegramNotifications.logs.deliveryOk')
+                  : t('telegramNotifications.logs.deliveryFailed')
+              }}
+            </n-tag>
+          </div>
+          <n-text v-if="!item.ok && item.error" type="error" style="font-size: 13px">
+            {{ item.error }}
+          </n-text>
+        </li>
+      </ul>
+    </n-modal>
   </n-space>
 </template>
 
@@ -319,17 +396,41 @@ onMounted(() => {
   background: var(--n-color-modal);
   white-space: nowrap;
 }
-.col-message {
-  max-width: 320px;
-  text-align: start;
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
 }
-.message-preview {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+.message-modal-body {
+  margin: 0;
   white-space: pre-wrap;
-  text-align: start;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.delivery-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.delivery-list__item {
+  padding: 12px 14px;
+  border: 1px solid var(--n-divider-color);
+  border-radius: 8px;
+}
+.delivery-list__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.delivery-list__id {
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
 }
 .logs-empty {
   padding: 32px 20px;

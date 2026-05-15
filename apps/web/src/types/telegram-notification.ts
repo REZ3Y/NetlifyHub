@@ -9,11 +9,18 @@ export type TelegramNotificationSettings = {
 
 export type TelegramNotificationLogStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPED';
 
+export type TelegramDeliveryResult = {
+  chatId: string;
+  ok: boolean;
+  error?: string;
+};
+
 export type TelegramNotificationLog = {
   id: string;
   status: TelegramNotificationLogStatus;
   message: string;
   recipients: string[];
+  deliveryResults: TelegramDeliveryResult[];
   linkedAccountId: string | null;
   accountLabel: string | null;
   teamSlug: string | null;

@@ -5,11 +5,18 @@ import {
   TELEGRAM_ALERT_WINDOW_MS,
 } from '../lib/telegram-queue-constants.js';
 
+export type TelegramDeliveryResultDto = {
+  chatId: string;
+  ok: boolean;
+  error?: string;
+};
+
 export type TelegramNotificationLogDto = {
   id: string;
   status: TelegramNotificationStatus;
   message: string;
   recipients: string[];
+  deliveryResults: TelegramDeliveryResultDto[];
   linkedAccountId: string | null;
   accountLabel: string | null;
   teamSlug: string | null;
@@ -30,11 +37,51 @@ function parseRecipients(json: string): string[] {
   }
 }
 
+function parseDeliveryResults(json: string | null | undefined): TelegramDeliveryResultDto[] | null {
+  if (!json) return null;
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    const out: TelegramDeliveryResultDto[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') continue;
+      const o = item as { chatId?: unknown; ok?: unknown; error?: unknown };
+      const chatId =
+        typeof o.chatId === 'string' || typeof o.chatId === 'number' ? String(o.chatId) : '';
+      if (!chatId) continue;
+      out.push({
+        chatId,
+        ok: o.ok === true,
+        error: typeof o.error === 'string' && o.error.trim() ? o.error.trim() : undefined,
+      });
+    }
+    return out.length ? out : null;
+  } catch {
+    return null;
+  }
+}
+
+function inferDeliveryResults(
+  status: TelegramNotificationStatus,
+  recipients: string[],
+  errorMessage: string | null
+): TelegramDeliveryResultDto[] {
+  if (!recipients.length) return [];
+  const err =
+    errorMessage?.trim() ||
+    (status === TelegramNotificationStatus.SKIPPED ? 'Skipped' : 'Delivery failed');
+  if (status === TelegramNotificationStatus.SENT) {
+    return recipients.map((chatId) => ({ chatId, ok: true }));
+  }
+  return recipients.map((chatId) => ({ chatId, ok: false, error: err }));
+}
+
 function toDto(row: {
   id: string;
   status: TelegramNotificationStatus;
   message: string;
   recipientsJson: string;
+  deliveryResultsJson?: string | null;
   linkedAccountId: string | null;
   accountLabel: string | null;
   teamSlug: string | null;
@@ -44,11 +91,17 @@ function toDto(row: {
   sentAt: Date | null;
   createdAt: Date;
 }): TelegramNotificationLogDto {
+  const recipients = parseRecipients(row.recipientsJson);
+  const deliveryResults =
+    parseDeliveryResults(row.deliveryResultsJson ?? null) ??
+    inferDeliveryResults(row.status, recipients, row.errorMessage);
+
   return {
     id: row.id,
     status: row.status,
     message: row.message,
-    recipients: parseRecipients(row.recipientsJson),
+    recipients,
+    deliveryResults,
     linkedAccountId: row.linkedAccountId,
     accountLabel: row.accountLabel,
     teamSlug: row.teamSlug,
@@ -80,6 +133,7 @@ export async function createTelegramNotificationLog(input: {
   status: TelegramNotificationStatus;
   message: string;
   recipients: string[];
+  deliveryResults?: TelegramDeliveryResultDto[];
   linkedAccountId?: string | null;
   accountLabel?: string | null;
   teamSlug?: string | null;
@@ -93,6 +147,9 @@ export async function createTelegramNotificationLog(input: {
       status: input.status,
       message: input.message,
       recipientsJson: JSON.stringify(input.recipients),
+      deliveryResultsJson: input.deliveryResults?.length
+        ? JSON.stringify(input.deliveryResults)
+        : null,
       linkedAccountId: input.linkedAccountId ?? null,
       accountLabel: input.accountLabel ?? null,
       teamSlug: input.teamSlug ?? null,
@@ -100,7 +157,7 @@ export async function createTelegramNotificationLog(input: {
       usedPercent: input.usedPercent ?? null,
       errorMessage: input.errorMessage ?? null,
       sentAt: input.sentAt ?? null,
-    },
+    } as Parameters<typeof prisma.telegramNotificationLog.create>[0]['data'],
   });
 }
 

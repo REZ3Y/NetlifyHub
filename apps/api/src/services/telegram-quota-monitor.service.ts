@@ -5,6 +5,7 @@ import { fetchLinkedNetlifyAccountUsage } from './netlify-account-usage.service.
 import {
   createTelegramNotificationLog,
   shouldSkipAccountDueToRateLimit,
+  type TelegramDeliveryResultDto,
 } from './telegram-notification-log.service.js';
 import {
   getTelegramSettingsForWorker,
@@ -144,13 +145,19 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
 
     if (!usageResult.ok) {
       result.failed += 1;
+      const usageErr = usageResult.message;
       await createTelegramNotificationLog({
         status: TelegramNotificationStatus.FAILED,
         message: `Could not load usage for ${accountLabel}.`,
         recipients: settings.recipientChatIds,
+        deliveryResults: settings.recipientChatIds.map((chatId) => ({
+          chatId,
+          ok: false,
+          error: usageErr,
+        })),
         linkedAccountId: account.id,
         accountLabel,
-        errorMessage: usageResult.message,
+        errorMessage: usageErr,
       });
       continue;
     }
@@ -183,20 +190,27 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
 
     if (await shouldSkipAccountDueToRateLimit(account.id)) {
       result.skipped += 1;
+      const rateLimitMsg = 'Rate limit: 3 alerts per account in the last 7 days.';
       await createTelegramNotificationLog({
         status: TelegramNotificationStatus.SKIPPED,
         message,
         recipients: settings.recipientChatIds,
+        deliveryResults: settings.recipientChatIds.map((chatId) => ({
+          chatId,
+          ok: false,
+          error: rateLimitMsg,
+        })),
         linkedAccountId: account.id,
         accountLabel,
         teamSlug: usageResult.usage.teamSlug,
         quotaKind: check.kind,
         usedPercent: percent,
-        errorMessage: 'Rate limit: 3 alerts per account in the last 7 days.',
+        errorMessage: rateLimitMsg,
       });
       continue;
     }
 
+    const deliveryResults: TelegramDeliveryResultDto[] = [];
     let anySent = false;
     let lastError: string | null = null;
     for (const chatId of settings.recipientChatIds) {
@@ -209,8 +223,10 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
       );
       if (sent.ok) {
         anySent = true;
+        deliveryResults.push({ chatId, ok: true });
       } else {
         lastError = sent.error;
+        deliveryResults.push({ chatId, ok: false, error: sent.error });
       }
     }
 
@@ -220,6 +236,7 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
         status: TelegramNotificationStatus.SENT,
         message,
         recipients: settings.recipientChatIds,
+        deliveryResults,
         linkedAccountId: account.id,
         accountLabel,
         teamSlug: usageResult.usage.teamSlug,
@@ -233,6 +250,7 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
         status: TelegramNotificationStatus.FAILED,
         message,
         recipients: settings.recipientChatIds,
+        deliveryResults,
         linkedAccountId: account.id,
         accountLabel,
         teamSlug: usageResult.usage.teamSlug,

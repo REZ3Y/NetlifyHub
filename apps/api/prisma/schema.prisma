@@ -137,6 +137,8 @@ model TelegramNotificationLog {
   message          String                     @db.Text
   /** JSON array of recipient chat IDs. */
   recipientsJson   String                     @db.Text
+  /** JSON array of per-recipient send results: { chatId, ok, error? }. */
+  deliveryResultsJson String?                 @db.Text
   linkedAccountId  String?
   accountLabel     String?                    @db.VarChar(255)
   teamSlug         String?                    @db.VarChar(128)
