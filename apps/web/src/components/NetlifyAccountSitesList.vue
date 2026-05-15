@@ -181,9 +181,23 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
             >
               <n-text strong class="sites-list__name">{{ site.name }}</n-text>
             </n-button>
-            <n-text v-if="site.displayDomain" depth="3" class="sites-list__domain">
-              {{ site.displayDomain }}
-            </n-text>
+            <div v-if="site.displayDomain || site.copyDomain" class="sites-list__domain-row">
+              <n-text depth="3" class="sites-list__domain">
+                {{ site.displayDomain ?? site.copyDomain }}
+              </n-text>
+              <n-button
+                quaternary
+                circle
+                size="tiny"
+                class="sites-list__copy-domain"
+                :title="t('netlifyAccountDetail.sitesCopyDomain')"
+                @click="copyDomain(site)"
+              >
+                <template #icon>
+                  <n-icon :component="CopyOutline" size="14" />
+                </template>
+              </n-button>
+            </div>
             <n-text depth="3" class="sites-list__source">{{ site.deploySource }}</n-text>
             <n-text v-if="site.ownerName" depth="3" class="sites-list__owner">
               {{ t('netlifyAccountDetail.sitesOwnedBy', { name: site.ownerName }) }}
@@ -239,18 +253,6 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
                 </n-space>
               </div>
             </n-popover>
-            <n-button
-              v-if="site.copyDomain || site.displayDomain"
-              quaternary
-              circle
-              size="small"
-              :title="t('netlifyAccountDetail.sitesCopyDomain')"
-              @click="copyDomain(site)"
-            >
-              <template #icon>
-                <n-icon :component="CopyOutline" />
-              </template>
-            </n-button>
           </div>
           <div class="sites-list__actions">
             <n-button
@@ -367,7 +369,27 @@ async function clearPanelNote(site: NetlifyLinkedSite) {
   font-size: 0.95rem;
 }
 
-.sites-list__domain,
+.sites-list__domain-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.sites-list__domain {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sites-list__copy-domain {
+  flex-shrink: 0;
+}
+
 .sites-list__source,
 .sites-list__owner,
 .sites-list__published {

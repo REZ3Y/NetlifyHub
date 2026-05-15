@@ -127,12 +127,12 @@ const summaryRows = computed<SummaryRow[]>(() => {
     { key: 'uid', label: t('netlifyAccounts.fields.uid'), value: a.uid },
     { key: 'fullName', label: t('netlifyAccounts.fields.fullName'), value: a.fullName ?? '—' },
     { key: 'email', label: t('netlifyAccounts.fields.email'), value: a.email ?? '—' },
-    {
+    /*{
       key: 'avatarUrl',
       label: t('netlifyAccounts.fields.avatarUrl'),
       value: a.avatarUrl ?? '—',
       breakAll: !!a.avatarUrl,
-    },
+    },*/
     {
       key: 'affiliateId',
       label: t('netlifyAccounts.fields.affiliateId'),
