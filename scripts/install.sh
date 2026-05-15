@@ -21,6 +21,13 @@ if [[ ! -f ".env" ]]; then
   echo "Created .env at repo root — edit DATABASE_URL, REDIS_URL, WEB_ORIGIN, TOKEN_ENCRYPTION_KEY."
 fi
 
+if ! grep -qE '^DATABASE_URL=.+$' .env 2>/dev/null; then
+  echo ""
+  echo "ERROR: DATABASE_URL is missing or empty in .env"
+  echo "  Edit .env and set DATABASE_URL (default for Docker local: port 5433)."
+  exit 1
+fi
+
 echo ""
 echo "Running database migrations..."
 pnpm db:generate
