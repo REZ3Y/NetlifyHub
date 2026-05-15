@@ -623,19 +623,102 @@ netlifyhub_verify_database_ready() {
   _log_info "PostgreSQL login OK on 127.0.0.1:${pg_port}; Redis is reachable."
 }
 
-# Public entry — call from install.sh (after cd to repo root).
-netlifyhub_install_prerequisites() {
-  local mode="${1:-full}"
+_docker_cmd() {
+  if docker info >/dev/null 2>&1; then
+    echo docker
+    return 0
+  fi
+  if _command_exists sudo && sudo docker info >/dev/null 2>&1; then
+    echo "sudo docker"
+    return 0
+  fi
+  return 1
+}
 
-  _log_info "Checking prerequisites..."
+netlifyhub_docker_compose() {
+  local dc
+  dc="$(_docker_cmd)" || {
+    _log_err "Docker daemon is not reachable. Install/start Docker and retry."
+    exit 1
+  }
+  if $dc compose version >/dev/null 2>&1; then
+    $dc compose "$@"
+  elif _command_exists docker-compose; then
+    docker-compose "$@"
+  else
+    _log_err "Docker Compose plugin not found. Install docker-compose-plugin."
+    exit 1
+  fi
+}
+
+_ensure_docker() {
+  local dc
+  if dc="$(_docker_cmd)" && $dc compose version >/dev/null 2>&1; then
+    _log_info "Docker OK ($($dc --version 2>/dev/null | head -1))"
+    return 0
+  fi
+
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    _log_err "Docker is required. Install Docker Desktop, then re-run the installer."
+    exit 1
+  fi
+
+  _log_info "Installing Docker (get.docker.com)..."
+  if _command_exists apt-get; then
+    _run_as_root apt-get update -qq
+    _run_as_root apt-get install -y ca-certificates curl gnupg
+  fi
+  curl -fsSL https://get.docker.com | _run_as_root sh
+  _start_systemd_service docker
+
+  if ! _docker_cmd >/dev/null; then
+    _log_err "Docker installed but daemon is not running. Start it: systemctl start docker"
+    exit 1
+  fi
+
+  dc="$(_docker_cmd)"
+  if ! $dc compose version >/dev/null 2>&1; then
+    if _command_exists apt-get; then
+      _run_as_root apt-get install -y docker-compose-plugin 2>/dev/null || true
+    fi
+  fi
+
+  if $dc compose version >/dev/null 2>&1; then
+    _log_info "Docker Compose OK"
+    return 0
+  fi
+
+  _log_err "Docker Compose is required after installing Docker."
+  exit 1
+}
+
+# Public entry — call from install scripts (after cd to repo root).
+netlifyhub_install_prerequisites() {
+  local mode="${1:-docker}"
 
   if [[ "$mode" == "bootstrap" ]]; then
+    _log_info "Bootstrap tools for remote install..."
     _ensure_curl
     _ensure_git
     return 0
   fi
 
-  _ensure_curl
-  _ensure_node
-  _ensure_pnpm
+  if [[ "$mode" == "docker" ]]; then
+    _log_info "Checking Docker prerequisites..."
+    _ensure_curl
+    _ensure_git
+    _ensure_docker
+    return 0
+  fi
+
+  if [[ "$mode" == "dev" ]]; then
+    _log_info "Checking developer prerequisites..."
+    _ensure_curl
+    _ensure_node
+    _ensure_pnpm
+    return 0
+  fi
+
+  _log_err "Unknown install prerequisite mode: ${mode}"
+  exit 1
 }

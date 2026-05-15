@@ -39,14 +39,14 @@ NetlifyHub یک پنل تحت وب **Production-Grade** برای مدیریت ت
 مخزن: [https://github.com/REZ3Y/NetlifyHub](https://github.com/REZ3Y/NetlifyHub)
 
 ```bash
-bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+NETLIFYHUB_INSTALL_DIR=/opt/netlifyhub bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 ```
 
-در URL فقط اگر شاخهٔ پیش‌فرض GitHub شما **`main`** است از `main` استفاده کنید؛ اگر پیش‌فرض **`master`** است، همان را جایگزین کنید. فایل **`install.sh` باید در ریشهٔ مخزن روی GitHub باشد** (در صورت 404، نسخهٔ محلی را push کنید).
+نصب‌کننده **Docker** را نصب می‌کند (در صورت نبود)، مخزن را کلون می‌کند، از شما **آدرس پنل** و **نام کاربری/رمز ادمین** را می‌پرسد، سپس `docker compose up -d --build` را اجرا می‌کند.
 
-این دستور مخزن را کلون می‌کند، پیش‌نیازها را بررسی می‌کند (git، Node.js 22+، pnpm — در صورت نبود تا حد امکان نصب می‌کند)، در صورت وجود Docker سرویس Postgres/Redis را بالا می‌آورد، مایگریشن را اجرا می‌کند و ادمین اولیه را می‌سازد.
+**نصب توسعه (بدون Docker برای اپ):** `NETLIFYHUB_INSTALL_MODE=dev bash install.sh`
 
-برای رد کردن Docker خودکار: `NETLIFYHUB_SKIP_DOCKER=1`. در ویندوز ابتدا Node.js 22+ را دستی نصب کنید و دوباره نصب را اجرا کنید.
+در URL فقط اگر شاخهٔ پیش‌فرض GitHub شما **`main`** است از `main` استفاده کنید. فایل‌های نصب باید روی GitHub push شده باشند.
 
 اگر خطای `404:: command not found` دیدید، به‌دلیل نبودن **`curl -f`** بوده: بدون آن، بدنهٔ خطای GitHub به bash داده می‌شود و اجرای آن معنی ندارد.
 

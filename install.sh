@@ -38,10 +38,26 @@ source "${bootstrap_dir}/install-prerequisites.sh"
 netlifyhub_install_prerequisites bootstrap
 
 DEFAULT_REPO="${NETLIFYHUB_REPO_URL:-https://github.com/REZ3Y/NetlifyHub.git}"
-TMP="$(mktemp -d)"
-trap 'rm -rf "${TMP}" "${bootstrap_dir}"' EXIT
+INSTALL_DIR="${NETLIFYHUB_INSTALL_DIR:-}"
 
-echo "Cloning NetlifyHub from ${DEFAULT_REPO} ..."
-git clone --depth 1 "${DEFAULT_REPO}" "${TMP}/netlifyhub"
-cd "${TMP}/netlifyhub"
+if [[ -n "$INSTALL_DIR" ]]; then
+  mkdir -p "$INSTALL_DIR"
+  TARGET="$INSTALL_DIR"
+else
+  TARGET="$(mktemp -d)"
+  trap 'rm -rf "${TARGET}" "${bootstrap_dir}"' EXIT
+  echo "[NetlifyHub] Installing into temporary directory: ${TARGET}"
+  echo "[NetlifyHub] For a permanent path, re-run with: NETLIFYHUB_INSTALL_DIR=/opt/netlifyhub"
+fi
+
+if [[ -d "${TARGET}/.git" ]]; then
+  echo "Updating existing clone in ${TARGET} ..."
+  git -C "$TARGET" pull --ff-only
+else
+  echo "Cloning NetlifyHub from ${DEFAULT_REPO} into ${TARGET} ..."
+  git clone --depth 1 "${DEFAULT_REPO}" "${TARGET}"
+fi
+
+cd "${TARGET}"
+export NETLIFYHUB_INSTALL_MODE="${NETLIFYHUB_INSTALL_MODE:-docker}"
 bash scripts/install.sh

@@ -38,25 +38,33 @@ Per [Netlify API documentation](https://docs.netlify.com/api-and-cli-guides/api-
 - pnpm 9 (`corepack enable && corepack prepare pnpm@9.14.2 --activate`)
 - PostgreSQL 16+ and Redis 7+ (local or Docker)
 
-## Install (recommended — one line)
+## Install (recommended — one line, Docker)
 
 Repository: [https://github.com/REZ3Y/NetlifyHub](https://github.com/REZ3Y/NetlifyHub)
 
 ```bash
-bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
+NETLIFYHUB_INSTALL_DIR=/opt/netlifyhub bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install.sh)
 ```
 
-Use **`main`** in the URL only if that is your GitHub default branch; if the default is **`master`**, replace `main` with `master`. The file **`install.sh` must exist at the repository root** on GitHub (push your local copy if the one-line command returns HTTP 404).
+The installer will:
 
-This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), checks prerequisites (git, Node.js 22+, pnpm — installing them when possible), starts Postgres/Redis via Docker when available, runs migrations, and launches the interactive admin bootstrap.
+1. Install **git**, **curl**, and **Docker** (if missing)
+2. Clone or update the repo (use `NETLIFYHUB_INSTALL_DIR` for a permanent path)
+3. Ask for **panel URL**, **admin username/password**, and generate **TOKEN_ENCRYPTION_KEY**
+4. Run **`docker compose up -d --build`** (Postgres, Redis, API, worker)
+5. Create the first admin via seed on API startup
 
-On Linux servers without Docker, the installer can install **PostgreSQL** and **Redis** via `apt`/`dnf` and set `DATABASE_URL` to port **5432**. Set `NETLIFYHUB_SKIP_DOCKER=1` to skip Docker; set `NETLIFYHUB_SKIP_NATIVE_DB=1` to skip native DB install. On Windows, install Node.js 22+ manually first.
+Open the panel at the URL you entered (default `http://YOUR_SERVER_IP:3000`).
 
-If you previously saw `404:: command not found`, you were missing **`curl -f`**: without it, curl prints GitHub’s error body and bash tries to run it as a script.
+**Developer install** (Node/pnpm on host, no Docker app stack):
 
-To install from a fork or mirror, set `NETLIFYHUB_REPO_URL` before the command (for example `https://github.com/your-user/NetlifyHub.git`).
+```bash
+NETLIFYHUB_INSTALL_MODE=dev bash install.sh
+```
 
-If you already cloned the repository, run `bash install.sh` or `bash scripts/install.sh` from the repo root instead.
+Use **`main`** in the curl URL only if that is your GitHub default branch. Push `install.sh` to GitHub before using the one-line command.
+
+To install from a fork, set `NETLIFYHUB_REPO_URL` (for example `https://github.com/your-user/NetlifyHub.git`).
 
 ## Quick start (manual)
 
@@ -75,21 +83,16 @@ pnpm dev
 - API: `http://localhost:3000`
 - Web: `http://localhost:5173`
 
-## Docker
+## Docker (manual)
 
-1. Copy `.env.docker.example` to `.env` in the repo root (adjust `WEB_ORIGIN` if needed).
+Same as the one-line installer, or:
+
+1. `cp .env.docker.example .env` and edit `WEB_ORIGIN`, `TOKEN_ENCRYPTION_KEY`, `SEED_ADMIN_*`
 2. `docker compose up -d --build`
-3. Optionally seed the first admin without an interactive shell:
 
-```bash
-# Add to .env then recreate the api container, or pass inline for a one-off run:
-docker compose run --rm -e SEED_ADMIN_USERNAME=admin -e SEED_ADMIN_PASSWORD='your-secure-password' api \
-  sh -lc "pnpm --filter @netlifyhub/api exec prisma migrate deploy && pnpm --filter @netlifyhub/api exec prisma db seed && exit 0"
-```
+The API entrypoint runs migrations and seed. When `SEED_ADMIN_USERNAME` / `SEED_ADMIN_PASSWORD` are set and the database has no users, seed creates an `ADMIN` user.
 
-The normal `api` service entrypoint already runs `prisma migrate deploy` and `prisma db seed` on startup. When `SEED_ADMIN_USERNAME` and `SEED_ADMIN_PASSWORD` are set and no users exist, seed creates an `ADMIN` user.
-
-- Web UI + API (Compose): `http://localhost:3000` (Fastify serves the SPA and `/v1`)
+- Web UI + API: `http://localhost:3000` (single container serves SPA + `/v1`)
 
 Docker Compose reads the repo-root `.env` for **`VITE_APP_TITLE`** when building the **API** image (the Vue bundle is built in that Dockerfile). Set **`WEB_ORIGIN`** to the exact URL you open in the browser (default `http://localhost:3000`).
 
