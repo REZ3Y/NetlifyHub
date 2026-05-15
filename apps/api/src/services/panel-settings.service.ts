@@ -4,6 +4,7 @@ import {
   MAX_NETLIFY_CACHE_TTL_MINUTES,
   MIN_NETLIFY_CACHE_TTL_MINUTES,
 } from '../lib/netlify-cache-constants.js';
+import { invalidateAllNetlifyApiCaches } from '../lib/netlify-api-cache-registry.js';
 
 const SETTINGS_ID = 'singleton';
 
@@ -64,6 +65,7 @@ export async function updatePanelSettings(input: {
     select: { netlifyCacheTtlMinutes: true, updatedAt: true },
   });
   invalidatePanelSettingsCache();
+  invalidateAllNetlifyApiCaches();
   return {
     netlifyCacheTtlMinutes: row.netlifyCacheTtlMinutes,
     updatedAt: row.updatedAt.toISOString(),

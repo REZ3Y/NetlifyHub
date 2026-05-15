@@ -5,14 +5,17 @@ import { prisma } from '../db/prisma.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 const GIB = 1024 ** 3;
-import { getNetlifyCacheTtlMs } from './panel-settings.service.js';
+import { isNetlifyApiCacheFresh } from '../lib/netlify-api-cache.js';
+import { registerNetlifyApiCacheClearer } from '../lib/netlify-api-cache-registry.js';
 
 type UsageCacheEntry = {
   usage: NetlifyAccountUsageDto;
-  expiresAt: number;
+  cachedAt: number;
 };
 
 const usageCache = new Map<string, UsageCacheEntry>();
+
+registerNetlifyApiCacheClearer(() => usageCache.clear());
 
 function usageCacheKey(userId: string, linkedAccountId: string): string {
   return `${userId}:${linkedAccountId}`;
@@ -158,12 +161,12 @@ function pickBillingPeriod(
   return { start, end };
 }
 
-export function getCachedLinkedNetlifyAccountUsage(
+export async function getCachedLinkedNetlifyAccountUsage(
   userId: string,
   linkedAccountId: string
-): NetlifyAccountUsageDto | null {
+): Promise<NetlifyAccountUsageDto | null> {
   const cached = usageCache.get(usageCacheKey(userId, linkedAccountId));
-  if (cached && cached.expiresAt > Date.now()) return cached.usage;
+  if (cached && (await isNetlifyApiCacheFresh(cached.cachedAt))) return cached.usage;
   return null;
 }
 
@@ -222,7 +225,7 @@ export async function fetchUsageSummariesForLinkedAccounts(
   await Promise.all(
     toFetch.map(async (linkedAccountId) => {
       if (!options?.refresh) {
-        const cached = getCachedLinkedNetlifyAccountUsage(userId, linkedAccountId);
+        const cached = await getCachedLinkedNetlifyAccountUsage(userId, linkedAccountId);
         if (cached) {
           result[linkedAccountId] = usageToSummary(cached);
           return;
@@ -253,7 +256,7 @@ export async function fetchLinkedNetlifyAccountUsage(
   }
 
   const cached = usageCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached && (await isNetlifyApiCacheFresh(cached.cachedAt))) {
     return { ok: true, usage: cached.usage };
   }
 
@@ -405,10 +408,9 @@ export async function fetchLinkedNetlifyAccountUsage(
     })),
   };
 
-  const ttlMs = await getNetlifyCacheTtlMs();
   usageCache.set(cacheKey, {
     usage,
-    expiresAt: Date.now() + ttlMs,
+    cachedAt: Date.now(),
   });
 
   return { ok: true, usage };

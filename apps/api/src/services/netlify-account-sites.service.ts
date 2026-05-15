@@ -3,7 +3,8 @@ import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import { parseNextUrlFromLinkHeader } from '@netlifyhub/netlify-client';
 import type { FastifyReply } from 'fastify';
 import type { Env } from '../config/env.js';
-import { getNetlifyCacheTtlMs } from './panel-settings.service.js';
+import { isNetlifyApiCacheFresh, netlifyApiCacheControlHeader } from '../lib/netlify-api-cache.js';
+import { registerNetlifyApiCacheClearer } from '../lib/netlify-api-cache-registry.js';
 import type { NetlifyClient } from '../integrations/netlify/index.js';
 import { createNetlifyFetchForUser } from '../lib/netlify-proxied-fetch.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
@@ -13,10 +14,12 @@ import { attachPanelNotesToSites } from './netlify-linked-site-note.service.js';
 type SitesCacheEntry = {
   sites: NetlifyLinkedSiteDto[];
   teamName: string;
-  expiresAt: number;
+  cachedAt: number;
 };
 
 const sitesCache = new Map<string, SitesCacheEntry>();
+
+registerNetlifyApiCacheClearer(() => sitesCache.clear());
 
 function sitesCacheKey(userId: string, linkedAccountId: string): string {
   return `${userId}:${linkedAccountId}`;
@@ -200,7 +203,7 @@ export async function fetchLinkedNetlifyAccountSites(
   }
 
   const cached = sitesCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached && (await isNetlifyApiCacheFresh(cached.cachedAt))) {
     const sites = await attachPanelNotesToSites(linkedAccountId, cached.sites);
     return { ok: true, teamName: cached.teamName, sites };
   }
@@ -245,11 +248,10 @@ export async function fetchLinkedNetlifyAccountSites(
         return a.name.localeCompare(b.name);
       });
 
-    const ttlMs = await getNetlifyCacheTtlMs();
     sitesCache.set(cacheKey, {
       sites,
       teamName,
-      expiresAt: Date.now() + ttlMs,
+      cachedAt: Date.now(),
     });
 
     const sitesWithNotes = await attachPanelNotesToSites(linkedAccountId, sites);
@@ -279,16 +281,16 @@ export async function streamLinkedNetlifySiteThumbnail(
   siteId: string,
   reply: FastifyReply
 ): Promise<void> {
-  const sendPlaceholder = () => {
+  const sendPlaceholder = async () => {
     reply
-      .header('Cache-Control', 'private, max-age=300')
+      .header('Cache-Control', await netlifyApiCacheControlHeader())
       .type('image/svg+xml')
       .send(SITE_THUMB_PLACEHOLDER_SVG);
   };
 
   const clientResult = await createNetlifyClientForLinkedAccount(env, userId, linkedAccountId);
   if (!clientResult.ok) {
-    sendPlaceholder();
+    await sendPlaceholder();
     return;
   }
 
@@ -296,13 +298,13 @@ export async function streamLinkedNetlifySiteThumbnail(
   try {
     site = await clientResult.client.sites.get(siteId);
   } catch {
-    sendPlaceholder();
+    await sendPlaceholder();
     return;
   }
 
   const imageUrl = pickScreenshotUrl(site);
   if (!imageUrl) {
-    sendPlaceholder();
+    await sendPlaceholder();
     return;
   }
 
@@ -310,13 +312,16 @@ export async function streamLinkedNetlifySiteThumbnail(
     const fetchImpl = await createNetlifyFetchForUser(env, userId);
     const res = await fetchImpl(imageUrl);
     if (!res.ok) {
-      sendPlaceholder();
+      await sendPlaceholder();
       return;
     }
     const buf = Buffer.from(await res.arrayBuffer());
     const contentType = res.headers.get('content-type') ?? 'image/png';
-    reply.header('Cache-Control', 'private, max-age=300').type(contentType).send(buf);
+    reply
+      .header('Cache-Control', await netlifyApiCacheControlHeader())
+      .type(contentType)
+      .send(buf);
   } catch {
-    sendPlaceholder();
+    await sendPlaceholder();
   }
 }

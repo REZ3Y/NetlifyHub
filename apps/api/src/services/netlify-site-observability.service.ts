@@ -1,6 +1,7 @@
 import { NetlifyApiError } from '@netlifyhub/netlify-client';
 import type { Env } from '../config/env.js';
-import { getNetlifyCacheTtlMs } from './panel-settings.service.js';
+import { isNetlifyApiCacheFresh } from '../lib/netlify-api-cache.js';
+import { registerNetlifyApiCacheClearer } from '../lib/netlify-api-cache-registry.js';
 import { createNetlifyClientForLinkedAccount } from '../lib/netlify-linked-client.js';
 
 export type ObservabilityRange = '1h' | '6h' | '24h' | '7d';
@@ -35,8 +36,10 @@ export type SiteObservabilityDto = {
   };
 };
 
-type CacheEntry = { data: SiteObservabilityDto; expiresAt: number };
+type CacheEntry = { data: SiteObservabilityDto; cachedAt: number };
 const cache = new Map<string, CacheEntry>();
+
+registerNetlifyApiCacheClearer(() => cache.clear());
 
 function cacheKey(
   userId: string,
@@ -221,7 +224,7 @@ export async function fetchLinkedNetlifySiteObservability(
 > {
   const key = cacheKey(userId, linkedAccountId, siteId, range);
   const hit = cache.get(key);
-  if (hit && hit.expiresAt > Date.now()) {
+  if (hit && (await isNetlifyApiCacheFresh(hit.cachedAt))) {
     return { ok: true, observability: hit.data };
   }
 
@@ -237,10 +240,9 @@ export async function fetchLinkedNetlifySiteObservability(
       const { data } = await clientResult.client.requestJson<unknown>('GET', path);
       const normalized = normalizeObservabilityPayload(data, range, start, end, label);
       if (normalized) {
-        const ttlMs = await getNetlifyCacheTtlMs();
         cache.set(key, {
           data: normalized,
-          expiresAt: Date.now() + ttlMs,
+          cachedAt: Date.now(),
         });
         return { ok: true, observability: normalized };
       }
@@ -264,7 +266,6 @@ export async function fetchLinkedNetlifySiteObservability(
     label,
     'Observability metrics are not exposed on the public Netlify REST API for this token.'
   );
-  const ttlMs = await getNetlifyCacheTtlMs();
-  cache.set(key, { data: empty, expiresAt: Date.now() + ttlMs });
+  cache.set(key, { data: empty, cachedAt: Date.now() });
   return { ok: true, observability: empty };
 }
