@@ -30,6 +30,13 @@ export type NetlifyAccountUsageDto = {
   planName: string | null;
   billingPeriod: { start: string; end: string } | null;
   bandwidth: { used: number; included: number; usedLabel: string; includedLabel: string } | null;
+  credits: {
+    used: number;
+    included: number;
+    remaining: number;
+    remainingLabel: string;
+    includedLabel: string;
+  } | null;
   buildMinutes: {
     used: number;
     included: number;
@@ -56,6 +63,55 @@ function formatBytesLabel(bytes: number): string {
 function formatMinutesLabel(minutes: number): string {
   if (!Number.isFinite(minutes) || minutes < 0) return '—';
   return Math.round(minutes).toLocaleString('en-US');
+}
+
+function formatCreditsLabel(credits: number): string {
+  if (!Number.isFinite(credits) || credits < 0) return '—';
+  return Math.round(credits).toLocaleString('en-US');
+}
+
+function isCreditFreePlan(account: NetlifyAccount): boolean {
+  const slug = typeof account.type_slug === 'string' ? account.type_slug : '';
+  const name = typeof account.type_name === 'string' ? account.type_name : '';
+  return slug === 'credit-free' || name === 'Free';
+}
+
+function pickBillingPeriodFromAccount(
+  account: NetlifyAccount
+): { start: string; end: string } | null {
+  const start =
+    (typeof account.current_usage_period_start === 'string' &&
+      account.current_usage_period_start) ||
+    (typeof account.current_billing_period_start === 'string' &&
+      account.current_billing_period_start);
+  const end =
+    (typeof account.next_usage_period_start === 'string' && account.next_usage_period_start) ||
+    (typeof account.next_billing_period_start === 'string' && account.next_billing_period_start);
+  if (!start || !end) return null;
+  return { start, end };
+}
+
+function readCreditsUsage(account: NetlifyAccount): {
+  used: number;
+  included: number;
+  remaining: number;
+  remainingLabel: string;
+  includedLabel: string;
+} | null {
+  const cap = readCapability(account.capabilities, ['credits']);
+  const included =
+    (typeof cap?.included === 'number' ? cap.included : null) ??
+    parseNumeric(account.plan_credits as number | undefined);
+  const used = typeof cap?.used === 'number' ? cap.used : 0;
+  if (included == null || !Number.isFinite(included)) return null;
+  const remaining = Math.max(0, included - used);
+  return {
+    used,
+    included,
+    remaining,
+    remainingLabel: formatCreditsLabel(remaining),
+    includedLabel: formatCreditsLabel(included),
+  };
 }
 
 function parseNumeric(value: string | number | undefined): number | null {
@@ -199,20 +255,26 @@ export async function fetchLinkedNetlifyAccountUsage(
   const memberCount = collaborators?.used ?? null;
   const memberLimit = collaborators?.included ?? null;
 
+  const creditFree = isCreditFreePlan(accountDetail);
+  const credits = creditFree ? readCreditsUsage(accountDetail) : null;
+  const bandwidthFromApi =
+    bandwidth && typeof bandwidth.used === 'number' && typeof bandwidth.included === 'number'
+      ? {
+          used: bandwidth.used,
+          included: bandwidth.included,
+          usedLabel: formatBytesLabel(bandwidth.used),
+          includedLabel: formatBytesLabel(bandwidth.included),
+        }
+      : null;
+
   const usage: NetlifyAccountUsageDto = {
     teamName: accountDetail.name ?? team.name ?? slug,
     teamSlug: slug,
     planName: accountDetail.type_name ?? null,
-    billingPeriod: pickBillingPeriod(bandwidth, minutes),
-    bandwidth:
-      bandwidth && typeof bandwidth.used === 'number' && typeof bandwidth.included === 'number'
-        ? {
-            used: bandwidth.used,
-            included: bandwidth.included,
-            usedLabel: formatBytesLabel(bandwidth.used),
-            includedLabel: formatBytesLabel(bandwidth.included),
-          }
-        : null,
+    billingPeriod:
+      pickBillingPeriod(bandwidth, minutes) ?? pickBillingPeriodFromAccount(accountDetail),
+    bandwidth: creditFree ? null : bandwidthFromApi,
+    credits: creditFree ? credits : null,
     buildMinutes: {
       used: usedMinutes,
       included: includedMinutes,

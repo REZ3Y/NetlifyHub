@@ -57,8 +57,14 @@ export type NetlifyAccount = Record<string, unknown> & {
   slug?: string;
   type?: string;
   type_name?: string;
+  type_slug?: string;
   type_id?: string;
+  plan_credits?: number;
   billing_period?: string | null;
+  current_billing_period_start?: string;
+  next_billing_period_start?: string;
+  current_usage_period_start?: string;
+  next_usage_period_start?: string;
   capabilities?: Record<string, NetlifyCapabilityQuota | unknown>;
 };
 

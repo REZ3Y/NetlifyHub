@@ -10,6 +10,13 @@ export type NetlifyAccountUsage = {
     usedLabel: string;
     includedLabel: string;
   } | null;
+  credits: {
+    used: number;
+    included: number;
+    remaining: number;
+    remainingLabel: string;
+    includedLabel: string;
+  } | null;
   buildMinutes: {
     used: number;
     included: number;

@@ -233,9 +233,19 @@ const billingPeriodText = computed(() => {
                   <template v-if="usage">
                     <div class="usage-metrics">
                       <n-card size="small" embedded class="usage-metrics__item">
-                        <n-statistic :label="t('netlifyAccountDetail.usageBandwidth')">
+                        <n-statistic
+                          :label="
+                            usage.credits
+                              ? t('netlifyAccountDetail.usageCredits')
+                              : t('netlifyAccountDetail.usageBandwidth')
+                          "
+                        >
                           <template #default>
-                            <template v-if="usage.bandwidth">
+                            <template v-if="usage.credits">
+                              {{ usage.credits.remainingLabel }} /
+                              {{ usage.credits.includedLabel }}
+                            </template>
+                            <template v-else-if="usage.bandwidth">
                               {{ usage.bandwidth.usedLabel }} / {{ usage.bandwidth.includedLabel }}
                             </template>
                             <template v-else>—</template>
