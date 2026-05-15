@@ -168,32 +168,26 @@ function close() {
               <n-empty v-else size="small" :description="t('netlifyAccountDetail.obsNoData')" />
             </div>
 
-            <n-grid cols="1 s:3" :x-gap="12" :y-gap="12" class="obs-stats">
-              <n-gi>
-                <n-card size="small" embedded>
-                  <n-text depth="3">{{ t('netlifyAccountDetail.obsBandwidth') }}</n-text>
-                  <n-text strong style="display: block; margin-top: 4px">
-                    {{ data.stats.bandwidthLabel }}
-                  </n-text>
-                </n-card>
-              </n-gi>
-              <n-gi>
-                <n-card size="small" embedded>
-                  <n-text depth="3">{{ t('netlifyAccountDetail.obsFunctions') }}</n-text>
-                  <n-text strong style="display: block; margin-top: 4px">
-                    {{ data.stats.functionsLabel }}
-                  </n-text>
-                </n-card>
-              </n-gi>
-              <n-gi>
-                <n-card size="small" embedded>
-                  <n-text depth="3">{{ t('netlifyAccountDetail.obsNonBrowser') }}</n-text>
-                  <n-text strong style="display: block; margin-top: 4px">
-                    {{ data.stats.nonBrowserLabel }}
-                  </n-text>
-                </n-card>
-              </n-gi>
-            </n-grid>
+            <div class="obs-stats">
+              <n-card size="small" embedded class="obs-stats__card">
+                <n-text depth="3">{{ t('netlifyAccountDetail.obsBandwidth') }}</n-text>
+                <n-text strong style="display: block; margin-top: 4px">
+                  {{ data.stats.bandwidthLabel }}
+                </n-text>
+              </n-card>
+              <n-card size="small" embedded class="obs-stats__card">
+                <n-text depth="3">{{ t('netlifyAccountDetail.obsFunctions') }}</n-text>
+                <n-text strong style="display: block; margin-top: 4px">
+                  {{ data.stats.functionsLabel }}
+                </n-text>
+              </n-card>
+              <n-card size="small" embedded class="obs-stats__card">
+                <n-text depth="3">{{ t('netlifyAccountDetail.obsNonBrowser') }}</n-text>
+                <n-text strong style="display: block; margin-top: 4px">
+                  {{ data.stats.nonBrowserLabel }}
+                </n-text>
+              </n-card>
+            </div>
           </template>
         </n-spin>
       </n-space>
@@ -276,6 +270,13 @@ function close() {
 }
 
 .obs-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
   margin-top: 4px;
+}
+
+.obs-stats__card {
+  min-width: 0;
 }
 </style>

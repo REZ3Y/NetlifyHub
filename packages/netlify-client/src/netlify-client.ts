@@ -1,6 +1,8 @@
 import { NetlifyRequestExecutor, resolveRuntimeOptions } from './request-executor.js';
 import { NetlifyAccountsResource } from './resources/accounts.js';
+import { NetlifyBuildsResource } from './resources/builds.js';
 import { NetlifyDeploysResource } from './resources/deploys.js';
+import { NetlifyEnvVarsResource } from './resources/env-vars.js';
 import { NetlifySitesResource } from './resources/sites.js';
 import { NetlifyUserResource } from './resources/user.js';
 import type { HttpMethod, NetlifyRequestInit } from './types.js';
@@ -28,6 +30,8 @@ export class NetlifyClient {
 
   readonly sites: NetlifySitesResource;
   readonly deploys: NetlifyDeploysResource;
+  readonly builds: NetlifyBuildsResource;
+  readonly envVars: NetlifyEnvVarsResource;
   readonly accounts: NetlifyAccountsResource;
   readonly user: NetlifyUserResource;
 
@@ -36,6 +40,8 @@ export class NetlifyClient {
     this.exec = new NetlifyRequestExecutor(rt);
     this.sites = new NetlifySitesResource(this.exec);
     this.deploys = new NetlifyDeploysResource(this.exec);
+    this.builds = new NetlifyBuildsResource(this.exec);
+    this.envVars = new NetlifyEnvVarsResource(this.exec);
     this.accounts = new NetlifyAccountsResource(this.exec);
     this.user = new NetlifyUserResource(this.exec);
   }

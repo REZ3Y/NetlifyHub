@@ -18,6 +18,10 @@ import {
   fetchLinkedNetlifySiteObservability,
   type ObservabilityRange,
 } from '../services/netlify-site-observability.service.js';
+import {
+  fetchLinkedNetlifySiteEnvVars,
+  saveLinkedNetlifySiteEnvVar,
+} from '../services/netlify-site-env.service.js';
 
 const createBody = z.object({
   title: z.string().max(128).optional(),
@@ -33,6 +37,14 @@ const siteIdParams = z.object({
 
 const observabilityQuery = z.object({
   range: z.enum(['1h', '6h', '24h', '7d']).default('1h'),
+});
+
+const saveEnvBody = z.object({
+  key: z.string().min(1).max(256),
+  value: z.string().max(8192),
+  context: z.enum(['all', 'production', 'deploy-preview', 'branch-deploy', 'dev']).default('all'),
+  isSecret: z.boolean().optional(),
+  triggerRedeploy: z.boolean().optional(),
 });
 
 const listQuery = z.object({
@@ -145,6 +157,74 @@ export const netlifyAccountsRoutes: FastifyPluginAsync = async (app) => {
     }
 
     await streamLinkedNetlifySiteThumbnail(app.config, user.id, p.data.id, p.data.siteId, reply);
+  });
+
+  app.get('/:id/sites/:siteId/env', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = siteIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await fetchLinkedNetlifySiteEnvVars(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return { envVars: result.envVars };
+  });
+
+  app.post('/:id/sites/:siteId/env', async (request, reply) => {
+    const user = await authenticateRequest(request, reply);
+    if (!user) return;
+
+    const p = siteIdParams.safeParse(request.params);
+    if (!p.success) {
+      return reply.code(400).send({ error: 'VALIDATION_ERROR', message: 'Invalid id' });
+    }
+
+    const body = saveEnvBody.safeParse(request.body);
+    if (!body.success) {
+      return reply.code(400).send({
+        error: 'VALIDATION_ERROR',
+        message: 'Invalid payload',
+        details: body.error.flatten(),
+      });
+    }
+
+    const linked = await getLinkedNetlifyAccount(user.id, p.data.id);
+    if (!linked) {
+      return reply.code(404).send({ error: 'NOT_FOUND', message: 'Linked account not found.' });
+    }
+
+    const result = await saveLinkedNetlifySiteEnvVar(
+      app.config,
+      user.id,
+      p.data.id,
+      p.data.siteId,
+      body.data
+    );
+    if (!result.ok) {
+      return reply.code(result.status).send({
+        error: result.error,
+        message: result.message,
+      });
+    }
+    return result.result;
   });
 
   app.get('/:id/sites/:siteId/observability', async (request, reply) => {

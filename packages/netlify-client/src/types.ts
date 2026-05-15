@@ -98,3 +98,27 @@ export type NetlifyUser = Record<string, unknown> & {
   full_name?: string;
   avatar_url?: string;
 };
+
+export type NetlifyEnvVarValue = {
+  id?: string;
+  value?: string;
+  context?: string;
+  context_parameter?: string;
+};
+
+export type NetlifyEnvVar = {
+  key: string;
+  scopes?: string[];
+  values?: NetlifyEnvVarValue[];
+  is_secret?: boolean;
+  updated_at?: string;
+};
+
+export type NetlifyBuild = Record<string, unknown> & {
+  id?: string;
+  deploy_id?: string;
+  sha?: string;
+  done?: boolean;
+  error?: string;
+  created_at?: string;
+};

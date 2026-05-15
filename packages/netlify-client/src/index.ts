@@ -18,10 +18,20 @@ export type {
   NetlifyAccountBandwidth,
   NetlifyAccountBuildStatus,
   NetlifyAccountBuildStatusMinutes,
+  NetlifyBuild,
   NetlifyCapabilityQuota,
   NetlifyDeploy,
+  NetlifyEnvVar,
+  NetlifyEnvVarValue,
   NetlifySite,
   NetlifyUser,
 } from './types.js';
 export type { ListSitesParams } from './resources/sites.js';
 export type { ListSiteDeploysParams } from './resources/deploys.js';
+export type {
+  CreateEnvVarInput,
+  EnvVarContext,
+  SetEnvVarValueInput,
+  UpdateEnvVarInput,
+} from './resources/env-vars.js';
+export type { TriggerSiteBuildParams } from './resources/builds.js';

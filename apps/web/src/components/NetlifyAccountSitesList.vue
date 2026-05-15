@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { ChevronForwardOutline, CopyOutline, OpenOutline } from '@vicons/ionicons5';
+import {
+  ChevronForwardOutline,
+  CopyOutline,
+  OpenOutline,
+  SettingsOutline,
+} from '@vicons/ionicons5';
 import { useMessage } from 'naive-ui';
 import { useClipboard } from '@vueuse/core';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
 import NetlifyAccountSiteObservabilityModal from '@/components/NetlifyAccountSiteObservabilityModal.vue';
+import NetlifyAccountSiteEnvModal from '@/components/NetlifyAccountSiteEnvModal.vue';
 
 const PLACEHOLDER_THUMB = '/site-thumb-404.svg';
 
@@ -24,6 +30,7 @@ const { copy: copyToClipboard } = useClipboard();
 
 const brokenThumbs = ref<Set<string>>(new Set());
 const observabilityOpen = ref(false);
+const envOpen = ref(false);
 const selectedSite = ref<NetlifyLinkedSite | null>(null);
 
 function thumbSrc(site: NetlifyLinkedSite): string {
@@ -76,6 +83,11 @@ async function copyDomain(site: NetlifyLinkedSite) {
 function openObservability(site: NetlifyLinkedSite) {
   selectedSite.value = site;
   observabilityOpen.value = true;
+}
+
+function openEnv(site: NetlifyLinkedSite) {
+  selectedSite.value = site;
+  envOpen.value = true;
 }
 </script>
 
@@ -134,6 +146,17 @@ function openObservability(site: NetlifyLinkedSite) {
                 <n-icon :component="CopyOutline" />
               </template>
             </n-button>
+            <n-button
+              quaternary
+              circle
+              size="small"
+              :title="t('netlifyAccountDetail.envTitle')"
+              @click="openEnv(site)"
+            >
+              <template #icon>
+                <n-icon :component="SettingsOutline" />
+              </template>
+            </n-button>
             <a
               v-if="site.sslUrl || site.adminUrl"
               class="sites-list__link"
@@ -162,6 +185,11 @@ function openObservability(site: NetlifyLinkedSite) {
 
     <NetlifyAccountSiteObservabilityModal
       v-model:show="observabilityOpen"
+      :linked-account-id="linkedAccountId"
+      :site="selectedSite"
+    />
+    <NetlifyAccountSiteEnvModal
+      v-model:show="envOpen"
       :linked-account-id="linkedAccountId"
       :site="selectedSite"
     />
