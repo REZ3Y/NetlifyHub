@@ -249,8 +249,15 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     const user = await authenticateRequest(request, reply);
     if (!user) return;
 
-    const backup = await exportPanelBackup(app.config, user.id, user.role as Role);
-    const filename = `netlifyhub-backup-${backup.exportedAt.slice(0, 10)}.json`;
+    const scopeParsed = z
+      .enum(['full', 'accounts'])
+      .optional()
+      .safeParse((request.query as { scope?: string }).scope);
+    const scope = scopeParsed.success && scopeParsed.data ? scopeParsed.data : 'full';
+
+    const backup = await exportPanelBackup(app.config, user.id, user.role as Role, scope);
+    const scopeSuffix = scope === 'accounts' ? '-accounts' : '';
+    const filename = `netlifyhub-backup${scopeSuffix}-${backup.exportedAt.slice(0, 10)}.json`;
     return reply
       .header('Content-Type', 'application/json; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="${filename}"`)

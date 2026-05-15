@@ -3,7 +3,10 @@ import { prisma } from '../db/prisma.js';
 import {
   TELEGRAM_ALERT_MAX_PER_ACCOUNT,
   TELEGRAM_ALERT_WINDOW_MS,
+  TELEGRAM_RATE_LIMIT_SKIP_MESSAGE,
 } from '../lib/telegram-queue-constants.js';
+
+export { TELEGRAM_RATE_LIMIT_SKIP_MESSAGE };
 
 export type TelegramDeliveryResultDto = {
   chatId: string;
@@ -127,6 +130,20 @@ export async function countRecentSentAlertsForAccount(linkedAccountId: string): 
 export async function shouldSkipAccountDueToRateLimit(linkedAccountId: string): Promise<boolean> {
   const count = await countRecentSentAlertsForAccount(linkedAccountId);
   return count >= TELEGRAM_ALERT_MAX_PER_ACCOUNT;
+}
+
+/** Whether a rate-limit SKIPPED log was already recorded for this account in the rolling window. */
+export async function hasRecentRateLimitSkipLog(linkedAccountId: string): Promise<boolean> {
+  const since = new Date(Date.now() - TELEGRAM_ALERT_WINDOW_MS);
+  const count = await prisma.telegramNotificationLog.count({
+    where: {
+      linkedAccountId,
+      status: TelegramNotificationStatus.SKIPPED,
+      errorMessage: TELEGRAM_RATE_LIMIT_SKIP_MESSAGE,
+      createdAt: { gte: since },
+    },
+  });
+  return count > 0;
 }
 
 export async function createTelegramNotificationLog(input: {

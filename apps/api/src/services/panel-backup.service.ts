@@ -17,6 +17,10 @@ import { invalidateLinkedNetlifyAccountUsageCache } from './netlify-account-usag
 export const PANEL_BACKUP_VERSION_V1 = 1 as const;
 export const PANEL_BACKUP_VERSION_V2 = 2 as const;
 
+export const PANEL_BACKUP_SCOPE_FULL = 'full' as const;
+export const PANEL_BACKUP_SCOPE_ACCOUNTS = 'accounts' as const;
+export type PanelBackupScope = typeof PANEL_BACKUP_SCOPE_FULL | typeof PANEL_BACKUP_SCOPE_ACCOUNTS;
+
 const siteNoteSchema = z.object({
   netlifySiteId: z.string().min(1).max(128),
   note: z.string().min(1).max(512),
@@ -76,8 +80,14 @@ export const panelBackupV1Schema = z.object({
   netlifyLinkedAccounts: z.array(linkedAccountSchema),
 });
 
-export const panelBackupV2Schema = panelBackupV1Schema.extend({
+export const panelBackupV2Schema = z.object({
   version: z.literal(PANEL_BACKUP_VERSION_V2),
+  scope: z
+    .enum([PANEL_BACKUP_SCOPE_FULL, PANEL_BACKUP_SCOPE_ACCOUNTS])
+    .default(PANEL_BACKUP_SCOPE_FULL),
+  exportedAt: z.string().min(1).max(64),
+  settings: userSettingsSchema.optional(),
+  netlifyLinkedAccounts: z.array(linkedAccountSchema),
   deployArtifacts: z.array(deployArtifactSchema).default([]),
   panelSettings: panelSettingsBackupSchema.optional(),
   telegramNotificationSettings: telegramSettingsBackupSchema.optional(),
@@ -89,6 +99,50 @@ export const panelBackupSchema = z.discriminatedUnion('version', [
 ]);
 
 export type PanelBackupV2 = z.infer<typeof panelBackupV2Schema>;
+
+function resolveBackupScope(backup: z.infer<typeof panelBackupSchema>): PanelBackupScope {
+  if (backup.version === PANEL_BACKUP_VERSION_V2 && backup.scope === PANEL_BACKUP_SCOPE_ACCOUNTS) {
+    return PANEL_BACKUP_SCOPE_ACCOUNTS;
+  }
+  return PANEL_BACKUP_SCOPE_FULL;
+}
+
+function mapLinkedAccounts(
+  accounts: {
+    label: string | null;
+    netlifyId: string;
+    uid: string;
+    fullName: string | null;
+    avatarUrl: string | null;
+    email: string | null;
+    affiliateId: string | null;
+    siteCount: number;
+    netlifyCreatedAt: string | null;
+    netlifyLastLogin: string | null;
+    tokenEncrypted: string;
+    enabled: boolean;
+    siteNotes: { netlifySiteId: string; note: string }[];
+  }[]
+) {
+  return accounts.map((a) => ({
+    label: a.label,
+    netlifyId: a.netlifyId,
+    uid: a.uid,
+    fullName: a.fullName,
+    avatarUrl: a.avatarUrl,
+    email: a.email,
+    affiliateId: a.affiliateId,
+    siteCount: a.siteCount,
+    netlifyCreatedAt: a.netlifyCreatedAt,
+    netlifyLastLogin: a.netlifyLastLogin,
+    tokenEncrypted: a.tokenEncrypted,
+    enabled: a.enabled,
+    siteNotes: a.siteNotes.map((n) => ({
+      netlifySiteId: n.netlifySiteId,
+      note: n.note,
+    })),
+  }));
+}
 
 function parseRecipientIds(json: string): string[] {
   try {
@@ -168,7 +222,8 @@ async function restoreDeployArtifacts(
 export async function exportPanelBackup(
   env: Env,
   userId: string,
-  role: Role
+  role: Role,
+  scope: PanelBackupScope = PANEL_BACKUP_SCOPE_FULL
 ): Promise<PanelBackupV2> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
@@ -189,6 +244,18 @@ export async function exportPanelBackup(
       },
     },
   });
+
+  const base: PanelBackupV2 = {
+    version: PANEL_BACKUP_VERSION_V2,
+    scope,
+    exportedAt: new Date().toISOString(),
+    netlifyLinkedAccounts: mapLinkedAccounts(user.netlifyLinkedAccounts),
+    deployArtifacts: [],
+  };
+
+  if (scope === PANEL_BACKUP_SCOPE_ACCOUNTS) {
+    return base;
+  }
 
   const deployArtifacts: z.infer<typeof deployArtifactSchema>[] = [];
   for (const art of user.deployArtifacts) {
@@ -231,8 +298,7 @@ export async function exportPanelBackup(
   }
 
   return {
-    version: PANEL_BACKUP_VERSION_V2,
-    exportedAt: new Date().toISOString(),
+    ...base,
     settings: {
       timezone: user.timezone,
       proxyEnabled: user.proxyEnabled,
@@ -242,24 +308,6 @@ export async function exportPanelBackup(
       proxyUsername: user.proxyUsername,
       proxyPasswordEncrypted: user.proxyPasswordEncrypted,
     },
-    netlifyLinkedAccounts: user.netlifyLinkedAccounts.map((a) => ({
-      label: a.label,
-      netlifyId: a.netlifyId,
-      uid: a.uid,
-      fullName: a.fullName,
-      avatarUrl: a.avatarUrl,
-      email: a.email,
-      affiliateId: a.affiliateId,
-      siteCount: a.siteCount,
-      netlifyCreatedAt: a.netlifyCreatedAt,
-      netlifyLastLogin: a.netlifyLastLogin,
-      tokenEncrypted: a.tokenEncrypted,
-      enabled: a.enabled,
-      siteNotes: a.siteNotes.map((n) => ({
-        netlifySiteId: n.netlifySiteId,
-        note: n.note,
-      })),
-    })),
     deployArtifacts,
     panelSettings,
     telegramNotificationSettings,
@@ -304,11 +352,24 @@ export async function restorePanelBackup(
   }
 
   const backup = parsed.data;
-  const { settings, netlifyLinkedAccounts } = backup;
+  const backupScope = resolveBackupScope(backup);
+  const isAccountsOnly = backupScope === PANEL_BACKUP_SCOPE_ACCOUNTS;
+  const netlifyLinkedAccounts = backup.netlifyLinkedAccounts;
+  const settings =
+    backup.version === PANEL_BACKUP_VERSION_V1 ? backup.settings : (backup.settings ?? null);
 
-  const proxyError = validateProxySettings(settings);
-  if (proxyError) {
-    return { ok: false, error: 'VALIDATION_ERROR', message: proxyError };
+  if (!isAccountsOnly) {
+    if (!settings) {
+      return {
+        ok: false,
+        error: 'INVALID_BACKUP',
+        message: 'Full backup is missing user settings.',
+      };
+    }
+    const proxyError = validateProxySettings(settings);
+    if (proxyError) {
+      return { ok: false, error: 'VALIDATION_ERROR', message: proxyError };
+    }
   }
 
   const existingIds = await prisma.netlifyLinkedAccount.findMany({
@@ -316,7 +377,8 @@ export async function restorePanelBackup(
     select: { id: true },
   });
 
-  const deployArtifacts = backup.version === PANEL_BACKUP_VERSION_V2 ? backup.deployArtifacts : [];
+  const deployArtifacts =
+    !isAccountsOnly && backup.version === PANEL_BACKUP_VERSION_V2 ? backup.deployArtifacts : [];
 
   let notesRestored = 0;
   let artifactsRestored = 0;
@@ -326,18 +388,20 @@ export async function restorePanelBackup(
   await prisma.$transaction(async (tx) => {
     await tx.netlifyLinkedAccount.deleteMany({ where: { userId } });
 
-    await tx.user.update({
-      where: { id: userId },
-      data: {
-        timezone: settings.timezone,
-        proxyEnabled: settings.proxyEnabled,
-        proxyType: settings.proxyType,
-        proxyHost: settings.proxyHost?.trim() || null,
-        proxyPort: settings.proxyPort,
-        proxyUsername: settings.proxyUsername?.trim() || null,
-        proxyPasswordEncrypted: settings.proxyPasswordEncrypted,
-      },
-    });
+    if (!isAccountsOnly && settings) {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          timezone: settings.timezone,
+          proxyEnabled: settings.proxyEnabled,
+          proxyType: settings.proxyType,
+          proxyHost: settings.proxyHost?.trim() || null,
+          proxyPort: settings.proxyPort,
+          proxyUsername: settings.proxyUsername?.trim() || null,
+          proxyPasswordEncrypted: settings.proxyPasswordEncrypted,
+        },
+      });
+    }
 
     for (const account of netlifyLinkedAccounts) {
       const created = await tx.netlifyLinkedAccount.create({
@@ -370,7 +434,7 @@ export async function restorePanelBackup(
       }
     }
 
-    if (role === Role.ADMIN && backup.version === PANEL_BACKUP_VERSION_V2) {
+    if (!isAccountsOnly && role === Role.ADMIN && backup.version === PANEL_BACKUP_VERSION_V2) {
       if (backup.panelSettings) {
         await tx.panelSettings.upsert({
           where: { id: 'singleton' },
@@ -412,9 +476,11 @@ export async function restorePanelBackup(
     }
   });
 
-  await deleteAllUserDeployArtifacts(env, userId);
-  if (deployArtifacts.length) {
-    artifactsRestored = await restoreDeployArtifacts(env, userId, deployArtifacts);
+  if (!isAccountsOnly) {
+    await deleteAllUserDeployArtifacts(env, userId);
+    if (deployArtifacts.length) {
+      artifactsRestored = await restoreDeployArtifacts(env, userId, deployArtifacts);
+    }
   }
 
   if (panelSettingsRestored) {

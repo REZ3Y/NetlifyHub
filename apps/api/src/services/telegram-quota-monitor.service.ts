@@ -4,7 +4,9 @@ import { prisma } from '../db/prisma.js';
 import { fetchLinkedNetlifyAccountUsage } from './netlify-account-usage.service.js';
 import {
   createTelegramNotificationLog,
+  hasRecentRateLimitSkipLog,
   shouldSkipAccountDueToRateLimit,
+  TELEGRAM_RATE_LIMIT_SKIP_MESSAGE,
   type TelegramDeliveryResultDto,
 } from './telegram-notification-log.service.js';
 import {
@@ -190,23 +192,24 @@ export async function runTelegramQuotaMonitor(env: Env): Promise<TelegramQuotaMo
 
     if (await shouldSkipAccountDueToRateLimit(account.id)) {
       result.skipped += 1;
-      const rateLimitMsg = 'Rate limit: 3 alerts per account in the last 7 days.';
-      await createTelegramNotificationLog({
-        status: TelegramNotificationStatus.SKIPPED,
-        message,
-        recipients: settings.recipientChatIds,
-        deliveryResults: settings.recipientChatIds.map((chatId) => ({
-          chatId,
-          ok: false,
-          error: rateLimitMsg,
-        })),
-        linkedAccountId: account.id,
-        accountLabel,
-        teamSlug: usageResult.usage.teamSlug,
-        quotaKind: check.kind,
-        usedPercent: percent,
-        errorMessage: rateLimitMsg,
-      });
+      if (!(await hasRecentRateLimitSkipLog(account.id))) {
+        await createTelegramNotificationLog({
+          status: TelegramNotificationStatus.SKIPPED,
+          message,
+          recipients: settings.recipientChatIds,
+          deliveryResults: settings.recipientChatIds.map((chatId) => ({
+            chatId,
+            ok: false,
+            error: TELEGRAM_RATE_LIMIT_SKIP_MESSAGE,
+          })),
+          linkedAccountId: account.id,
+          accountLabel,
+          teamSlug: usageResult.usage.teamSlug,
+          quotaKind: check.kind,
+          usedPercent: percent,
+          errorMessage: TELEGRAM_RATE_LIMIT_SKIP_MESSAGE,
+        });
+      }
       continue;
     }
 

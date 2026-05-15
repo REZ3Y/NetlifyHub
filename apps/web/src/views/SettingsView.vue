@@ -29,6 +29,7 @@ const cacheTtlMinutes = ref(30);
 
 const isAdmin = computed(() => auth.user?.role === 'ADMIN');
 const downloadingBackup = ref(false);
+const backupFullScope = ref(true);
 const restoringBackup = ref(false);
 const restoreFileInput = ref<HTMLInputElement | null>(null);
 const pendingRestorePayload = ref<unknown | null>(null);
@@ -208,21 +209,33 @@ function onClearProxyPassword() {
   message.info(t('settings.proxy.clearPending'));
 }
 
+const pendingBackupScope = computed<'full' | 'accounts'>(() => {
+  const payload = pendingRestorePayload.value;
+  if (payload && typeof payload === 'object' && payload !== null && 'scope' in payload) {
+    const scope = (payload as { scope?: unknown }).scope;
+    if (scope === 'accounts') return 'accounts';
+  }
+  return 'full';
+});
+
 async function downloadBackup() {
   downloadingBackup.value = true;
   try {
+    const scope = backupFullScope.value ? 'full' : 'accounts';
     const { data } = await http.get<Record<string, unknown>>('/v1/me/backup', {
+      params: { scope },
       responseType: 'json',
     });
     const exportedAt =
       typeof data.exportedAt === 'string' ? data.exportedAt.slice(0, 10) : 'export';
+    const scopeSuffix = scope === 'accounts' ? '-accounts' : '';
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: 'application/json;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `netlifyhub-backup-${exportedAt}.json`;
+    anchor.download = `netlifyhub-backup${scopeSuffix}-${exportedAt}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
   } catch {
@@ -273,12 +286,17 @@ async function confirmRestore(): Promise<boolean> {
       ? t('settings.backup.restoreAlso', { items: adminItems.join(', ') })
       : '';
     message.success(
-      t('settings.backup.restoreSuccess', {
-        accounts: data.accountsRestored,
-        notes: data.notesRestored,
-        artifacts: data.artifactsRestored,
-        adminExtras,
-      })
+      pendingBackupScope.value === 'accounts'
+        ? t('settings.backup.restoreSuccessAccountsOnly', {
+            accounts: data.accountsRestored,
+            notes: data.notesRestored,
+          })
+        : t('settings.backup.restoreSuccess', {
+            accounts: data.accountsRestored,
+            notes: data.notesRestored,
+            artifacts: data.artifactsRestored,
+            adminExtras,
+          })
     );
     pendingRestorePayload.value = null;
     return true;
@@ -386,6 +404,12 @@ async function saveProxy() {
           <n-card :title="t('settings.backup.title')" :segmented="{ content: true }">
             <n-p depth="3" style="margin-top: 0">{{ t('settings.backup.hint') }}</n-p>
             <n-space vertical :size="16" style="width: 100%; margin-top: 12px">
+              <n-checkbox v-model:checked="backupFullScope">
+                {{ t('settings.backup.fullScope') }}
+              </n-checkbox>
+              <n-p v-if="!backupFullScope" depth="3" style="margin: 0">
+                {{ t('settings.backup.accountsOnlyHint') }}
+              </n-p>
               <n-button type="primary" :loading="downloadingBackup" @click="downloadBackup">
                 {{ t('settings.backup.download') }}
               </n-button>
@@ -540,7 +564,11 @@ async function saveProxy() {
       preset="dialog"
       type="warning"
       :title="t('settings.backup.restoreTitle')"
-      :content="t('settings.backup.restoreConfirm')"
+      :content="
+        pendingBackupScope === 'accounts'
+          ? t('settings.backup.restoreConfirmAccountsOnly')
+          : t('settings.backup.restoreConfirm')
+      "
       :positive-text="t('settings.backup.restoreConfirmBtn')"
       :negative-text="t('settings.backup.restoreCancel')"
       :loading="restoringBackup"

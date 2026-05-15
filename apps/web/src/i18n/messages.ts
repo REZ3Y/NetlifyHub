@@ -280,7 +280,11 @@ export const messages = {
       sectionBackup: 'Backup / restore',
       backup: {
         title: 'Panel data backup',
-        hint: 'Download all data you saved in the panel: proxy and timezone, linked Netlify accounts (with tokens), site notes, deploy zip files, and (for admins) cache TTL and Telegram alert settings. Login password is not included.',
+        hint: 'Export panel data as JSON. Use the checkbox below to include everything or only linked Netlify accounts. Login password is never included.',
+        fullScope:
+          'Full backup (settings, deploy files, linked accounts, and admin: cache + Telegram)',
+        accountsOnlyHint:
+          'Only linked Netlify accounts (tokens and site notes). Other settings stay unchanged.',
         download: 'Download backup',
         downloading: 'Preparing backup…',
         downloadError: 'Could not create backup',
@@ -289,6 +293,8 @@ export const messages = {
           'Upload a backup file exported from this panel. Your linked accounts, site notes, deploy files, and personal settings will be replaced. Admins also restore global cache and Telegram settings. Username and password stay unchanged.',
         restoreConfirm:
           'Replace your panel data with this backup? Linked accounts, deploy files, and settings will be overwritten. This cannot be undone.',
+        restoreConfirmAccountsOnly:
+          'Replace only your linked Netlify accounts with this backup? Other settings and deploy files stay unchanged. This cannot be undone.',
         restoreConfirmBtn: 'Restore',
         restoreCancel: 'Cancel',
         chooseFile: 'Choose backup file',
@@ -297,6 +303,7 @@ export const messages = {
         restoreError: 'Could not restore backup',
         restoreSuccess:
           'Restored {accounts} account(s), {notes} site note(s), and {artifacts} deploy file(s).{adminExtras}',
+        restoreSuccessAccountsOnly: 'Restored {accounts} account(s) and {notes} site note(s).',
         restoreAlso: ' Also restored: {items}.',
         restoreItemCache: 'cache TTL',
         restoreItemTelegram: 'Telegram alerts',
@@ -668,7 +675,10 @@ export const messages = {
       sectionBackup: 'پشتیبان‌گیری / بازیابی',
       backup: {
         title: 'پشتیبان‌گیری دادهٔ پنل',
-        hint: 'تمام داده‌هایی که در پنل ثبت کرده‌اید: پروکسی و منطقهٔ زمانی، اکانت‌های متصل نتلیفای (با توکن)، یادداشت سایت‌ها، فایل‌های zip استقرار، و برای مدیر: زمان کش و تنظیمات تلگرام. رمز ورود شامل نمی‌شود.',
+        hint: 'داده‌های پنل را به‌صورت JSON صادر کنید. با تیک زیر همهٔ موارد یا فقط اکانت‌های متصل نتلیفای را انتخاب کنید. رمز ورود هرگز در فایل نیست.',
+        fullScope: 'پشتیبان کامل (تنظیمات، فایل‌های استقرار، اکانت‌ها، و برای مدیر: کش + تلگرام)',
+        accountsOnlyHint:
+          'فقط اکانت‌های متصل نتلیفای (توکن و یادداشت سایت). سایر تنظیمات تغییر نمی‌کنند.',
         download: 'دانلود پشتیبان',
         downloading: 'در حال آماده‌سازی…',
         downloadError: 'ایجاد فایل پشتیبان ناموفق بود',
@@ -677,6 +687,8 @@ export const messages = {
           'فایل پشتیبانی که از همین پنل صادر شده را بارگذاری کنید. اکانت‌های متصل، یادداشت‌ها، فایل‌های استقرار و تنظیمات شخصی جایگزین می‌شوند. برای مدیر، تنظیمات کش و تلگرام هم بازیابی می‌شود. نام کاربری و رمز عبور تغییر نمی‌کنند.',
         restoreConfirm:
           'داده‌های پنل شما با این فایل جایگزین شود؟ اکانت‌ها، فایل‌های استقرار و تنظیمات بازنویسی می‌شوند. این عمل قابل بازگشت نیست.',
+        restoreConfirmAccountsOnly:
+          'فقط اکانت‌های متصل نتلیفای با این فایل جایگزین شوند؟ سایر تنظیمات و فایل‌های استقرار تغییر نمی‌کنند. این عمل قابل بازگشت نیست.',
         restoreConfirmBtn: 'بازیابی',
         restoreCancel: 'انصراف',
         chooseFile: 'انتخاب فایل پشتیبان',
@@ -685,6 +697,7 @@ export const messages = {
         restoreError: 'بازیابی ناموفق بود',
         restoreSuccess:
           '{accounts} اکانت، {notes} یادداشت سایت و {artifacts} فایل استقرار بازیابی شد.{adminExtras}',
+        restoreSuccessAccountsOnly: '{accounts} اکانت و {notes} یادداشت سایت بازیابی شد.',
         restoreAlso: ' همچنین بازیابی شد: {items}.',
         restoreItemCache: 'زمان کش',
         restoreItemTelegram: 'اعلان تلگرام',
