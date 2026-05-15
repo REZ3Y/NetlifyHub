@@ -65,6 +65,16 @@ onMounted(() => void load());
           >
             <div class="dashboard-card__body">
               <n-statistic tabular-nums :value="stats?.linkedAccountsCount ?? 0" />
+              <div v-if="stats" class="account-breakdown">
+                <n-text depth="3" class="breakdown-line">
+                  {{ t('dashboard.accountsActive') }}:
+                  <span class="breakdown-value">{{ stats.linkedAccountsEnabledCount }}</span>
+                </n-text>
+                <n-text depth="3" class="breakdown-line">
+                  {{ t('dashboard.accountsDisabled') }}:
+                  <span class="breakdown-value">{{ stats.linkedAccountsDisabledCount }}</span>
+                </n-text>
+              </div>
             </div>
           </n-card>
         </n-gi>
@@ -126,6 +136,24 @@ onMounted(() => void load());
   display: flex;
   flex-direction: column;
   min-height: 5.5rem;
+}
+
+.account-breakdown {
+  margin-top: auto;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.breakdown-line {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.breakdown-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 .hint {
