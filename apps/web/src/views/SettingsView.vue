@@ -260,13 +260,24 @@ async function confirmRestore(): Promise<boolean> {
       user: AuthUser;
       accountsRestored: number;
       notesRestored: number;
+      artifactsRestored: number;
+      panelSettingsRestored: boolean;
+      telegramSettingsRestored: boolean;
     }>('/v1/me/restore', pendingRestorePayload.value);
     auth.setUser(data.user);
     applyUserToForms(data.user);
+    const adminItems: string[] = [];
+    if (data.panelSettingsRestored) adminItems.push(t('settings.backup.restoreItemCache'));
+    if (data.telegramSettingsRestored) adminItems.push(t('settings.backup.restoreItemTelegram'));
+    const adminExtras = adminItems.length
+      ? t('settings.backup.restoreAlso', { items: adminItems.join(', ') })
+      : '';
     message.success(
       t('settings.backup.restoreSuccess', {
         accounts: data.accountsRestored,
         notes: data.notesRestored,
+        artifacts: data.artifactsRestored,
+        adminExtras,
       })
     );
     pendingRestorePayload.value = null;

@@ -44,7 +44,7 @@ bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install
 
 در URL فقط اگر شاخهٔ پیش‌فرض GitHub شما **`main`** است از `main` استفاده کنید؛ اگر پیش‌فرض **`master`** است، همان را جایگزین کنید. فایل **`install.sh` باید در ریشهٔ مخزن روی GitHub باشد** (در صورت 404، نسخهٔ محلی را push کنید).
 
-این دستور [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git) را کلون می‌کند، وابستگی‌ها را نصب می‌کند، مایگریشن را اجرا می‌کند (PostgreSQL باید با `DATABASE_URL` در `apps/api/.env` هماهنگ باشد) و سپس ساخت ادمین اولیه را به‌صورت تعاملی اجرا می‌کند.
+این دستور [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git) را کلون می‌کند، وابستگی‌ها را نصب می‌کند، مایگریشن را اجرا می‌کند (PostgreSQL باید با `DATABASE_URL` در `.env` ریشهٔ مخزن هماهنگ باشد) و سپس ساخت ادمین اولیه را به‌صورت تعاملی اجرا می‌کند. ابتدا Postgres و Redis را بالا بیاورید (مثلاً `pnpm run docker:local`).
 
 اگر خطای `404:: command not found` دیدید، به‌دلیل نبودن **`curl -f`** بوده: بدون آن، بدنهٔ خطای GitHub به bash داده می‌شود و اجرای آن معنی ندارد.
 
@@ -57,11 +57,11 @@ bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install
 ```bash
 git clone https://github.com/REZ3Y/NetlifyHub.git netlifyhub && cd netlifyhub
 pnpm install
-cp apps/api/.env.example apps/api/.env
-cp apps/worker/.env.example apps/worker/.env
-# فایل apps/api/.env را ویرایش کنید: DATABASE_URL، REDIS_URL، WEB_ORIGIN و در صورت نیاز SESSION_TTL_DAYS
+cp .env.example .env
+# فایل .env را ویرایش کنید: DATABASE_URL، REDIS_URL، WEB_ORIGIN، TOKEN_ENCRYPTION_KEY
 
-pnpm --filter @netlifyhub/api exec prisma migrate deploy
+pnpm run docker:local   # اختیاری: Postgres + Redis در Docker
+pnpm db:migrate
 pnpm --filter @netlifyhub/api run create-admin
 pnpm dev
 ```
@@ -79,7 +79,7 @@ pnpm dev
 
 ## متغیرهای محیطی
 
-جزئیات در `apps/api/.env.example` و فایل‌های مشابه worker و web.
+جزئیات در `.env.example` در ریشهٔ مخزن (یک فایل برای API، worker و web).
 
 - **`SESSION_TTL_DAYS`**: مدت اعتبار نشست و کوکی به روز (پیش‌فرض ۷).
 - **`WEB_ORIGIN`**: مبدأ دقیق مرورگر برای CORS (برای Docker معمولاً `http://localhost:3000`).

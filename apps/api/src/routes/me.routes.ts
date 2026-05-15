@@ -1,3 +1,4 @@
+import { Role } from '@prisma/client';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../db/prisma.js';
@@ -248,7 +249,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     const user = await authenticateRequest(request, reply);
     if (!user) return;
 
-    const backup = await exportPanelBackup(user.id);
+    const backup = await exportPanelBackup(app.config, user.id, user.role as Role);
     const filename = `netlifyhub-backup-${backup.exportedAt.slice(0, 10)}.json`;
     return reply
       .header('Content-Type', 'application/json; charset=utf-8')
@@ -260,7 +261,7 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
     const user = await authenticateRequest(request, reply);
     if (!user) return;
 
-    const result = await restorePanelBackup(user.id, request.body);
+    const result = await restorePanelBackup(app.config, user.id, user.role as Role, request.body);
     if (!result.ok) {
       return reply.code(400).send({
         error: result.error,
@@ -277,6 +278,9 @@ export const meRoutes: FastifyPluginAsync = async (app) => {
       user: toMeResponse(row),
       accountsRestored: result.accountsRestored,
       notesRestored: result.notesRestored,
+      artifactsRestored: result.artifactsRestored,
+      panelSettingsRestored: result.panelSettingsRestored,
+      telegramSettingsRestored: result.telegramSettingsRestored,
     };
   });
 };

@@ -48,7 +48,7 @@ bash <(curl -fLs https://raw.githubusercontent.com/REZ3Y/NetlifyHub/main/install
 
 Use **`main`** in the URL only if that is your GitHub default branch; if the default is **`master`**, replace `main` with `master`. The file **`install.sh` must exist at the repository root** on GitHub (push your local copy if the one-line command returns HTTP 404).
 
-This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), installs dependencies, runs migrations (PostgreSQL must match `DATABASE_URL` in `apps/api/.env`), and launches the interactive admin bootstrap.
+This clones [https://github.com/REZ3Y/NetlifyHub.git](https://github.com/REZ3Y/NetlifyHub.git), installs dependencies, runs migrations (PostgreSQL must match `DATABASE_URL` in the repo-root `.env`), and launches the interactive admin bootstrap. Start Postgres and Redis first (for example `pnpm run docker:local`).
 
 If you previously saw `404:: command not found`, you were missing **`curl -f`**: without it, curl prints GitHub’s error body and bash tries to run it as a script.
 
@@ -61,11 +61,11 @@ If you already cloned the repository, run `bash install.sh` or `bash scripts/ins
 ```bash
 git clone https://github.com/REZ3Y/NetlifyHub.git netlifyhub && cd netlifyhub
 pnpm install
-cp apps/api/.env.example apps/api/.env
-cp apps/worker/.env.example apps/worker/.env
-# Edit apps/api/.env — set DATABASE_URL, REDIS_URL, WEB_ORIGIN (e.g. http://localhost:5173), optional SESSION_TTL_DAYS
+cp .env.example .env
+# Edit .env — DATABASE_URL, REDIS_URL, WEB_ORIGIN (e.g. http://localhost:5173), TOKEN_ENCRYPTION_KEY
 
-pnpm --filter @netlifyhub/api exec prisma migrate deploy
+pnpm run docker:local   # optional: Postgres + Redis in Docker
+pnpm db:migrate
 pnpm --filter @netlifyhub/api run create-admin
 pnpm dev
 ```
@@ -93,7 +93,7 @@ Docker Compose reads the repo-root `.env` for **`VITE_APP_TITLE`** when building
 
 ## Environment variables
 
-See `apps/api/.env.example`, `apps/worker/.env.example`, and `apps/web/.env.example`. Highlights:
+See `.env.example` at the repository root (single file for API, worker, and web). Highlights:
 
 | Variable               | Description                                                             |
 | ---------------------- | ----------------------------------------------------------------------- |

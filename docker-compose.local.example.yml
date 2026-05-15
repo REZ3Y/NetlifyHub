@@ -46,11 +46,19 @@ services:
       context: .
       dockerfile: docker/worker.Dockerfile
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
+      DATABASE_URL: postgresql://netlifyhub:netlifyhub@postgres:5432/netlifyhub?schema=public
       REDIS_URL: redis://redis:6379
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-local-dev-token-encryption-key-min-32chars}
+      TELEGRAM_QUOTA_CRON_PATTERN: ${TELEGRAM_QUOTA_CRON_PATTERN:-"0 * * * *"}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 

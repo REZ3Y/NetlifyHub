@@ -17,11 +17,18 @@ pnpm install
 
 if [[ ! -f ".env" ]]; then
   cp .env.example .env
-  echo "Created .env at repo root — set DATABASE_URL, REDIS_URL, WEB_ORIGIN, TOKEN_ENCRYPTION_KEY."
+  echo "Created .env at repo root — edit DATABASE_URL, REDIS_URL, WEB_ORIGIN, TOKEN_ENCRYPTION_KEY."
 fi
 
-echo "Running database migrations (requires PostgreSQL and DATABASE_URL in .env)..."
-pnpm --filter @netlifyhub/api exec prisma migrate deploy
+echo ""
+echo "PostgreSQL and Redis must be running before migrations."
+echo "  Docker (recommended): pnpm run docker:local"
+echo "  Then ensure DATABASE_URL in .env matches (port 5433 for docker:local)."
+echo ""
+
+echo "Running database migrations..."
+pnpm db:generate
+pnpm db:migrate
 
 echo "Create the first administrator (interactive):"
 pnpm --filter @netlifyhub/api run create-admin
