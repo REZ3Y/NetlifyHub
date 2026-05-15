@@ -13,7 +13,8 @@ COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
 COPY packages/shared/package.json packages/shared/
 COPY packages/netlify-client/package.json packages/netlify-client/
-RUN pnpm install
+# Schema is not copied yet; postinstall must not run prisma generate here.
+RUN pnpm install --ignore-scripts
 COPY . .
 RUN pnpm --filter @netlifyhub/shared build
 RUN pnpm --filter @netlifyhub/netlify-client build

@@ -11,7 +11,7 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/netlify-client/package.json packages/netlify-client/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-RUN pnpm install
+RUN pnpm install --ignore-scripts
 COPY . .
 RUN pnpm --filter @netlifyhub/shared build
 RUN pnpm --filter @netlifyhub/netlify-client build
