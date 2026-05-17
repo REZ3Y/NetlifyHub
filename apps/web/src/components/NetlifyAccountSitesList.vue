@@ -10,8 +10,8 @@ import {
   SettingsOutline,
 } from '@vicons/ionicons5';
 import { useMessage } from 'naive-ui';
-import { useClipboard } from '@vueuse/core';
 import { isAxiosError } from 'axios';
+import { copyText } from '@/lib/copy-text';
 import { http } from '@/api/http';
 import { useUserDateTime } from '@/composables/useUserDateTime';
 import type { NetlifyLinkedSite } from '@/types/netlify-account-site';
@@ -35,7 +35,6 @@ const emit = defineEmits<{
 const { t, locale } = useI18n();
 const message = useMessage();
 const { formatDateTime } = useUserDateTime();
-const { copy: copyToClipboard } = useClipboard();
 
 const brokenThumbs = ref<Set<string>>(new Set());
 const observabilityOpen = ref(false);
@@ -90,8 +89,12 @@ async function copyDomain(site: NetlifyLinkedSite) {
     return;
   }
   const host = value.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
-  await copyToClipboard(host);
-  message.success(t('netlifyAccountDetail.sitesCopyDomainDone', { domain: host }));
+  const ok = await copyText(host);
+  if (ok) {
+    message.success(t('netlifyAccountDetail.sitesCopyDomainDone', { domain: host }));
+  } else {
+    message.error(t('netlifyAccountDetail.sitesCopyDomainFailed', { domain: host }));
+  }
 }
 
 function openObservability(site: NetlifyLinkedSite) {

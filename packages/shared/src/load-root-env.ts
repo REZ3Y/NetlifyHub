@@ -17,8 +17,14 @@ export function findRepoRoot(startDir: string = process.cwd()): string {
   }
 }
 
-/** Load the monorepo root `.env` into `process.env` (later keys override earlier). */
+/**
+ * Load repo-root `.env` without overriding variables already set (e.g. Docker Compose `environment:`).
+ */
 export function loadRootEnv(): void {
   const root = findRepoRoot();
-  config({ path: path.join(root, '.env'), override: true });
+  const name = process.env.NETLIFYHUB_ENV_FILE?.trim() || '.env';
+  const filePath = path.join(root, name);
+  if (fs.existsSync(filePath)) {
+    config({ path: filePath, override: false });
+  }
 }

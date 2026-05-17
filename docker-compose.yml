@@ -1,3 +1,7 @@
+# Production stack. Put settings in repo-root `.env` (Compose reads it automatically).
+# Backup template locally: `.env.production` → copy contents to `.env` on the server.
+#   docker compose up -d --build
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -7,7 +11,7 @@ services:
       POSTGRES_PASSWORD: netlifyhub
       POSTGRES_DB: netlifyhub
     ports:
-      - '5432:5432'
+      - '127.0.0.1:5432:5432'
     volumes:
       - netlifyhub_pg:/var/lib/postgresql/data
     healthcheck:
@@ -20,7 +24,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - '127.0.0.1:6379:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -56,6 +60,7 @@ services:
       - '3000:3000'
     volumes:
       - netlifyhub_uploads:/app/data/uploads
+      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,11 +82,15 @@ services:
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-local-dev-token-encryption-key-min-32chars}
       TELEGRAM_QUOTA_CRON_PATTERN: ${TELEGRAM_QUOTA_CRON_PATTERN:-"0 * * * *"}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ./.env:/app/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      api:
+        condition: service_started
 
 volumes:
   netlifyhub_pg:

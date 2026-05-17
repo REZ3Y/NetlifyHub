@@ -4,6 +4,7 @@ dist
 build
 .turbo
 .env
+.env.production
 .env.local
 .env.*.local
 apps/api/.env

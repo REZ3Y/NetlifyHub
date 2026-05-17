@@ -36,6 +36,8 @@ export async function buildApp(env: Env) {
   await app.register(helmet, {
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
+    /** Avoid COOP warnings on HTTP (non-localhost) origins in the browser console. */
+    crossOriginOpenerPolicy: false,
   });
 
   await app.register(cors, {
